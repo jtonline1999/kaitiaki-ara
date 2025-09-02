@@ -6,18 +6,21 @@ import { AppSidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
 
-  if (isLoading) {
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isLoading, router]);
+
+
+  if (isLoading || !user) {
     return <div className="flex h-screen items-center justify-center">Loading...</div>;
-  }
-  
-  if (!user) {
-    router.push('/login');
-    return null;
   }
 
   return (

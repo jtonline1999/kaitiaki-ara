@@ -70,12 +70,13 @@ export async function deleteVehicle(id: string) {
     throw new Error("You don't have permission to delete this vehicle.");
   }
 
-  const docRef = doc(db, 'vehicles', id);
-  await deleteDoc(docRef);
-  
   // Also delete associated compliance records
   const complianceQuery = query(collection(db, 'complianceRecords'), where('vehicleId', '==', id));
   const complianceSnapshot = await getDocs(complianceQuery);
   const deletePromises = complianceSnapshot.docs.map(doc => deleteDoc(doc.ref));
   await Promise.all(deletePromises);
+  
+  // Finally, delete the vehicle itself
+  const docRef = doc(db, 'vehicles', id);
+  await deleteDoc(docRef);
 }

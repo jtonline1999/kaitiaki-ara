@@ -1,7 +1,8 @@
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import { collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, query, where, orderBy } from 'firebase/firestore';
 import type { ComplianceRecord } from './types';
 import { addDays, formatISO } from 'date-fns';
+import { getVehicles } from './vehicles';
 
 const complianceCollection = collection(db, 'complianceRecords');
 
@@ -18,20 +19,39 @@ export async function getComplianceRecordsForVehicle(vehicleId: string): Promise
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ComplianceRecord));
 }
 
-// READ (upcoming)
+// READ (upcoming for the current user)
 export async function getUpcomingComplianceRecords(days: number): Promise<ComplianceRecord[]> {
-  const today = new Date();
-  const futureDate = addDays(today, days);
+    const user = auth.currentUser;
+    if (!user) return [];
 
-  const q = query(
-    complianceCollection,
-    where('expiryDate', '>=', today.toISOString()),
-    where('expiryDate', '<=', futureDate.toISOString()),
-    orderBy('expiryDate', 'asc')
-  );
+    const userVehicles = await getVehicles();
+    if (userVehicles.length === 0) return [];
 
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ComplianceRecord));
+    const vehicleIds = userVehicles.map(v => v.id);
+    const today = new Date();
+    const futureDate = addDays(today, days);
+
+    // Firestore 'in' queries are limited to 30 items. 
+    // If a user has more than 30 vehicles, we need to batch the queries.
+    const batches: Promise<ComplianceRecord[]>[] = [];
+    for (let i = 0; i < vehicleIds.length; i += 30) {
+        const batchIds = vehicleIds.slice(i, i + 30);
+        
+        const q = query(
+            complianceCollection,
+            where('vehicleId', 'in', batchIds),
+            where('expiryDate', '>=', today.toISOString()),
+            where('expiryDate', '<=', futureDate.toISOString()),
+            orderBy('expiryDate', 'asc')
+        );
+        
+        batches.push(getDocs(q).then(snapshot => 
+            snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ComplianceRecord))
+        ));
+    }
+
+    const results = await Promise.all(batches);
+    return results.flat();
 }
 
 

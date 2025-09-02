@@ -1,22 +1,37 @@
 'use server';
 
-import { db, auth } from './firebase';
+import { db } from './firebase';
 import { collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
 import type { Vehicle } from './types';
 import { revalidatePath } from 'next/cache';
-import { getAuth } from 'firebase/auth/next-server';
+import { getAuth } from 'firebase/auth/web-extension';
+import { app } from './firebase';
 import { cookies } from 'next/headers';
 
 const vehiclesCollection = collection(db, 'vehicles');
 
 async function getCurrentUser() {
-  const auth = getAuth({ cookies });
-  return await auth.getCurrentUser();
+  // The official way to get auth on the server is using the web-extension entry point.
+  // This is a workaround until the Next.js specific server-side auth is stable.
+  const auth = getAuth(app, {
+    persistence: {
+        type: 'none'
+    }
+  });
+  
+  const userCookie = cookies().get('user');
+  if (userCookie) {
+    const user = JSON.parse(userCookie.value);
+    auth.currentUser = user;
+    return auth.currentUser;
+  }
+  
+  return null;
 }
 
 // CREATE
 export async function addVehicle(vehicleData: Omit<Vehicle, 'id' | 'userId'>) {
-  const user = await getCurrentUser();
+  const user = auth.currentUser;
   if (!user) throw new Error('You must be logged in to add a vehicle.');
 
   const docRef = await addDoc(vehiclesCollection, {
@@ -29,7 +44,7 @@ export async function addVehicle(vehicleData: Omit<Vehicle, 'id' | 'userId'>) {
 
 // READ (all for current user)
 export async function getVehicles(): Promise<Vehicle[]> {
-  const user = await getCurrentUser();
+  const user = auth.currentUser;
   if (!user) return [];
   
   const q = query(vehiclesCollection, where('userId', '==', user.uid));
@@ -39,7 +54,7 @@ export async function getVehicles(): Promise<Vehicle[]> {
 
 // READ (one)
 export async function getVehicle(id: string): Promise<Vehicle | null> {
-  const user = await getCurrentUser();
+  const user = auth.currentUser;
   if (!user) return null;
 
   const docRef = doc(db, 'vehicles', id);
@@ -57,7 +72,7 @@ export async function getVehicle(id: string): Promise<Vehicle | null> {
 
 // UPDATE
 export async function updateVehicle(id: string, vehicleData: Partial<Omit<Vehicle, 'id' | 'userId'>>) {
-   const user = await getCurrentUser();
+   const user = auth.currentUser;
    if (!user) throw new Error('You must be logged in to update a vehicle.');
 
   // Ensure user owns the vehicle before updating
@@ -74,7 +89,7 @@ export async function updateVehicle(id: string, vehicleData: Partial<Omit<Vehicl
 
 // DELETE
 export async function deleteVehicle(id: string) {
-  const user = await getCurrentUser();
+  const user = auth.currentUser;
   if (!user) throw new Error('You must be logged in to delete a vehicle.');
 
   // Ensure user owns the vehicle before deleting

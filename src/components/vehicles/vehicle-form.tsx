@@ -33,6 +33,7 @@ import { useToast } from "@/hooks/use-toast";
 import { addVehicle, updateVehicle } from "@/lib/vehicles";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
+import { auth } from "@/lib/firebase";
 
 type VehicleFormProps = {
   mode: "add" | "edit";
@@ -95,17 +96,20 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
   }
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    if (!user) {
-       toast({
-        variant: "destructive",
-        title: "Authentication Error",
-        description: "You must be logged in to save a vehicle.",
-      });
-      return;
-    }
-
     startTransition(async () => {
       try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          toast({
+            variant: "destructive",
+            title: "Authentication Error",
+            description: "You must be logged in to save a vehicle.",
+          });
+          return;
+        }
+
+        const idToken = await currentUser.getIdToken();
+
         const vehicleData = {
             ...values,
             vin: values.vin || "",
@@ -114,14 +118,15 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
         };
 
         if (mode === 'add') {
-          await addVehicle(vehicleData, user.uid);
+          await addVehicle(idToken, vehicleData);
           toast({ title: 'Vehicle Added', description: 'The new vehicle has been saved.' });
         } else if (vehicle) {
-          await updateVehicle(vehicle.id, vehicleData);
+          await updateVehicle(idToken, vehicle.id, vehicleData);
           toast({ title: 'Vehicle Updated', description: 'The vehicle has been updated.' });
         }
         form.reset();
         setOpen(false);
+        router.refresh();
       } catch (error: any) {
         toast({
           variant: "destructive",

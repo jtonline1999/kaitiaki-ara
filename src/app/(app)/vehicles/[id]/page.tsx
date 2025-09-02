@@ -1,16 +1,40 @@
+
+'use client';
+
 import type { Vehicle, ComplianceRecord } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ComplianceList } from '@/components/vehicles/compliance-list';
-import { notFound } from 'next/navigation';
+import { notFound, useParams } from 'next/navigation';
 import { Truck } from 'lucide-react';
 import { VehicleForm } from '@/components/vehicles/vehicle-form';
-import { getVehicle } from '@/lib/vehicles';
-import { getComplianceRecordsForVehicle } from '@/lib/compliance';
-import { Suspense } from 'react';
+import { getVehicleClientSide } from '@/lib/vehicles';
+import { Suspense, useEffect, useState } from 'react';
+import { useAuth } from '@/contexts/auth-context';
 
-async function VehicleData({ vehicleId }: { vehicleId: string }) {
-  const vehicle = await getVehicle(vehicleId);
+function VehicleData() {
+  const params = useParams();
+  const vehicleId = params.id as string;
+  const { user } = useAuth();
+  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+      if (user && vehicleId) {
+          getVehicleClientSide(vehicleId).then(data => {
+              setVehicle(data);
+              setLoading(false);
+          });
+      } else if (!user) {
+          setLoading(false);
+      }
+  }, [user, vehicleId]);
+
+
+  if (loading) {
+      return <div>Loading vehicle...</div>;
+  }
+  
   if (!vehicle) {
     notFound();
   }
@@ -71,11 +95,11 @@ async function VehicleData({ vehicleId }: { vehicleId: string }) {
   )
 }
 
-export default function VehicleDetailPage({ params }: { params: { id: string } }) {
+export default function VehicleDetailPage() {
   return (
     <div className="container mx-auto">
       <Suspense fallback={<div>Loading vehicle...</div>}>
-        <VehicleData vehicleId={params.id} />
+        <VehicleData />
       </Suspense>
     </div>
   );

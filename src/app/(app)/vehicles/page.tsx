@@ -1,10 +1,32 @@
+
+'use client';
+
 import { VehicleListHeader } from '@/components/vehicles/vehicle-list-header';
 import { VehicleCard } from '@/components/vehicles/vehicle-card';
-import { getVehicles } from '@/lib/vehicles';
-import { Suspense } from 'react';
+import { getVehiclesClientSide } from '@/lib/vehicles';
+import { Suspense, useEffect, useState } from 'react';
+import type { Vehicle } from '@/lib/types';
+import { useAuth } from '@/contexts/auth-context';
 
-async function VehicleGrid() {
-  const vehicles = await getVehicles();
+function VehicleGrid() {
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      getVehiclesClientSide().then((data) => {
+        setVehicles(data);
+        setLoading(false);
+      });
+    } else {
+        setLoading(false);
+    }
+  }, [user]);
+  
+  if (loading) {
+      return <p>Loading vehicles...</p>;
+  }
 
   if (vehicles.length === 0) {
     return (

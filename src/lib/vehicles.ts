@@ -1,6 +1,9 @@
+'use server';
+
 import { db, auth } from './firebase';
 import { collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
 import type { Vehicle } from './types';
+import { revalidatePath } from 'next/cache';
 
 const vehiclesCollection = collection(db, 'vehicles');
 
@@ -13,6 +16,7 @@ export async function addVehicle(vehicleData: Omit<Vehicle, 'id' | 'userId'>) {
     ...vehicleData,
     userId: user.uid,
   });
+  revalidatePath('/vehicles');
   return docRef.id;
 }
 
@@ -57,6 +61,8 @@ export async function updateVehicle(id: string, vehicleData: Partial<Omit<Vehicl
 
   const docRef = doc(db, 'vehicles', id);
   await updateDoc(docRef, vehicleData);
+  revalidatePath('/vehicles');
+  revalidatePath(`/vehicles/${id}`);
 }
 
 // DELETE
@@ -79,4 +85,7 @@ export async function deleteVehicle(id: string) {
   // Finally, delete the vehicle itself
   const docRef = doc(db, 'vehicles', id);
   await deleteDoc(docRef);
+
+  revalidatePath('/vehicles');
+  revalidatePath(`/vehicles/${id}`);
 }

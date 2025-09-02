@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { addVehicle, updateVehicle } from "@/lib/vehicles";
-import { useRouter } from "next/navigation";
 
 type VehicleFormProps = {
   mode: "add" | "edit";
@@ -49,7 +48,6 @@ const formSchema = z.object({
 });
 
 export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
-  const router = useRouter();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
@@ -110,7 +108,6 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
         }
         form.reset();
         setOpen(false);
-        router.refresh();
       } catch (error: any) {
         toast({
           variant: "destructive",

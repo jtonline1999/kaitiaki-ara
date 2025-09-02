@@ -9,13 +9,12 @@ import { revalidatePath } from 'next/cache';
 const vehiclesCollection = collection(db, 'vehicles');
 
 // CREATE
-export async function addVehicle(vehicleData: Omit<Vehicle, 'id' | 'userId'>) {
-  const user = auth.currentUser;
-  if (!user) throw new Error('You must be logged in to add a vehicle.');
+export async function addVehicle(vehicleData: Omit<Vehicle, 'id' | 'userId'>, userId: string) {
+  if (!userId) throw new Error('You must be logged in to add a vehicle.');
 
   const docRef = await addDoc(vehiclesCollection, {
     ...vehicleData,
-    userId: user.uid,
+    userId: userId,
   });
   revalidatePath('/vehicles');
   return docRef.id;

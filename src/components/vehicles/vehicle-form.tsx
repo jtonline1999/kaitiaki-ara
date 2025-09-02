@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Vehicle } from "@/lib/types";
@@ -31,6 +32,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { addVehicle, updateVehicle } from "@/lib/vehicles";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/auth-context";
 
 type VehicleFormProps = {
   mode: "add" | "edit";
@@ -50,6 +52,7 @@ const formSchema = z.object({
 
 export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -92,6 +95,15 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
   }
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
+    if (!user) {
+       toast({
+        variant: "destructive",
+        title: "Authentication Error",
+        description: "You must be logged in to save a vehicle.",
+      });
+      return;
+    }
+
     startTransition(async () => {
       try {
         const vehicleData = {
@@ -102,7 +114,7 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
         };
 
         if (mode === 'add') {
-          await addVehicle(vehicleData);
+          await addVehicle(vehicleData, user.uid);
           toast({ title: 'Vehicle Added', description: 'The new vehicle has been saved.' });
         } else if (vehicle) {
           await updateVehicle(vehicle.id, vehicleData);
@@ -110,7 +122,6 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
         }
         form.reset();
         setOpen(false);
-        // No longer need router.refresh() because revalidatePath is used in the server action
       } catch (error: any) {
         toast({
           variant: "destructive",

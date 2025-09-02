@@ -1,5 +1,6 @@
 export type Vehicle = {
   id: string;
+  userId: string; // Added to associate vehicle with a user
   plateNumber: string;
   vin: string;
   make: string;

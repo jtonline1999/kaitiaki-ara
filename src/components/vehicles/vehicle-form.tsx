@@ -111,11 +111,11 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
         form.reset();
         setOpen(false);
         router.refresh();
-      } catch (error) {
+      } catch (error: any) {
         toast({
           variant: "destructive",
           title: "Save Failed",
-          description: "Could not save vehicle. Please try again.",
+          description: error.message || "Could not save vehicle. Please try again.",
         });
       }
     });

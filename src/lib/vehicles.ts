@@ -1,33 +1,12 @@
+
 'use server';
 
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import { collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
 import type { Vehicle } from './types';
 import { revalidatePath } from 'next/cache';
-import { getAuth } from 'firebase/auth/web-extension';
-import { app } from './firebase';
-import { cookies } from 'next/headers';
 
 const vehiclesCollection = collection(db, 'vehicles');
-
-async function getCurrentUser() {
-  // The official way to get auth on the server is using the web-extension entry point.
-  // This is a workaround until the Next.js specific server-side auth is stable.
-  const auth = getAuth(app, {
-    persistence: {
-        type: 'none'
-    }
-  });
-  
-  const userCookie = cookies().get('user');
-  if (userCookie) {
-    const user = JSON.parse(userCookie.value);
-    auth.currentUser = user;
-    return auth.currentUser;
-  }
-  
-  return null;
-}
 
 // CREATE
 export async function addVehicle(vehicleData: Omit<Vehicle, 'id' | 'userId'>) {

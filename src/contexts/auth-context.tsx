@@ -18,9 +18,7 @@ const AuthContext = createContext<AuthContextType>({ user: null, isLoading: true
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const pathname = usePathname();
-  const router = useRouter();
-
+  
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
@@ -33,19 +31,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
     return () => unsubscribe();
   }, []);
-
-  useEffect(() => {
-    if (isLoading) return;
-
-    const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/signup');
-    
-    if (!user && !isAuthPage) {
-      router.push('/login');
-    } else if (user && isAuthPage) {
-      router.push('/dashboard');
-    }
-  }, [user, isLoading, pathname, router]);
-
 
   return (
     <AuthContext.Provider value={{ user, isLoading }}>

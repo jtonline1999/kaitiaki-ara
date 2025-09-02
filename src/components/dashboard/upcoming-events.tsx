@@ -1,4 +1,3 @@
-import { complianceRecords, vehicles } from '@/lib/data';
 import {
   Table,
   TableBody,
@@ -12,6 +11,8 @@ import { differenceInDays, parseISO } from 'date-fns';
 import { FileText, ShieldCheck, Truck, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '../ui/button';
+import { getUpcomingComplianceRecords } from '@/lib/compliance';
+import { getVehicle } from '@/lib/vehicles';
 
 const iconMap = {
   Registration: <FileText className="h-4 w-4" />,
@@ -20,18 +21,24 @@ const iconMap = {
   Insurance: <Shield className="h-4 w-4" />,
 };
 
-export function UpcomingEvents() {
+export async function UpcomingEvents() {
   const now = new Date();
-  const upcomingRecords = complianceRecords
-    .map(record => ({
-      ...record,
-      vehicle: vehicles.find(v => v.id === record.vehicleId),
-      daysUntilExpiry: differenceInDays(parseISO(record.expiryDate), now),
-    }))
-    .filter(record => record.daysUntilExpiry >= 0 && record.daysUntilExpiry <= 30)
-    .sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry);
+  const upcomingRecords = await getUpcomingComplianceRecords(30);
 
-  if (upcomingRecords.length === 0) {
+  const recordsWithVehicles = await Promise.all(
+    upcomingRecords.map(async (record) => {
+      const vehicle = await getVehicle(record.vehicleId);
+      return {
+        ...record,
+        vehicle,
+        daysUntilExpiry: differenceInDays(parseISO(record.expiryDate), now),
+      };
+    })
+  );
+
+  const sortedRecords = recordsWithVehicles.sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry);
+
+  if (sortedRecords.length === 0) {
     return (
       <div className="py-10 text-center text-sm text-muted-foreground">
         No upcoming renewals in the next 30 days. You're all set!
@@ -51,7 +58,7 @@ export function UpcomingEvents() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {upcomingRecords.map((record) => (
+          {sortedRecords.map((record) => (
             <TableRow key={record.id}>
               <TableCell>
                 <div className="font-medium">

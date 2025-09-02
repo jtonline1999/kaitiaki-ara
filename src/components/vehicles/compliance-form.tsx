@@ -25,23 +25,27 @@ import { useState, type ReactNode } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { OcrModal } from "./ocr-modal";
 import { predictRucExpiry } from "@/ai/flows/predict-ruc-expiry";
 import { useToast } from "@/hooks/use-toast";
+import { addComplianceRecord, updateComplianceRecord } from "@/lib/compliance";
+import { useRouter } from "next/navigation";
 
 type ComplianceFormProps = {
   mode: "add" | "edit";
   record?: ComplianceRecord;
   children: ReactNode;
+  vehicleId: string;
 };
 
-export function ComplianceForm({ mode, record, children }: ComplianceFormProps) {
+export function ComplianceForm({ mode, record, children, vehicleId }: ComplianceFormProps) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState(record?.type || "");
   const [expiryDate, setExpiryDate] = useState<Date | undefined>(
-    record ? new Date(record.expiryDate) : undefined
+    record ? parseISO(record.expiryDate) : undefined
   );
   const [predictedRucDate, setPredictedRucDate] = useState<string | null>(null);
   const [isPredicting, setIsPredicting] = useState(false);
@@ -86,6 +90,42 @@ export function ComplianceForm({ mode, record, children }: ComplianceFormProps) 
       setIsPredicting(false);
     }
   };
+
+  const handleSave = async () => {
+    if (!type || !expiryDate) {
+      toast({
+        variant: 'destructive',
+        title: 'Missing fields',
+        description: 'Please select a type and expiry date.',
+      });
+      return;
+    }
+
+    const recordData = {
+      type: type as ComplianceRecord['type'],
+      expiryDate: expiryDate.toISOString(),
+      vehicleId: vehicleId,
+      predictedExpiryDate: predictedRucDate ?? record?.predictedExpiryDate
+    };
+
+    try {
+      if (mode === 'add') {
+        await addComplianceRecord(recordData);
+        toast({ title: 'Record Added', description: 'The new compliance record has been saved.' });
+      } else if (record) {
+        await updateComplianceRecord(record.id, recordData);
+        toast({ title: 'Record Updated', description: 'The compliance record has been updated.' });
+      }
+      setOpen(false);
+      router.refresh();
+    } catch (error) {
+       toast({
+        variant: "destructive",
+        title: "Save Failed",
+        description: "Could not save the record. Please try again.",
+      });
+    }
+  }
 
 
   return (
@@ -180,7 +220,7 @@ export function ComplianceForm({ mode, record, children }: ComplianceFormProps) 
             <DialogClose asChild>
                 <Button type="button" variant="secondary">Cancel</Button>
             </DialogClose>
-            <Button type="submit" onClick={() => setOpen(false)}>Save</Button>
+            <Button type="submit" onClick={handleSave}>Save</Button>
           </div>
         </DialogFooter>
       </DialogContent>

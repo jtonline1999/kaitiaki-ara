@@ -1,4 +1,3 @@
-import { vehicles, complianceRecords } from '@/lib/data';
 import type { Vehicle, ComplianceRecord } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -6,18 +5,19 @@ import { ComplianceList } from '@/components/vehicles/compliance-list';
 import { notFound } from 'next/navigation';
 import { Truck } from 'lucide-react';
 import { VehicleForm } from '@/components/vehicles/vehicle-form';
+import { getVehicle } from '@/lib/vehicles';
+import { getComplianceRecordsForVehicle } from '@/lib/compliance';
+import { Suspense } from 'react';
 
-export default function VehicleDetailPage({ params }: { params: { id: string } }) {
-  const vehicle = vehicles.find((v) => v.id === params.id) as Vehicle | undefined;
+async function VehicleData({ vehicleId }: { vehicleId: string }) {
+  const vehicle = await getVehicle(vehicleId);
   if (!vehicle) {
     notFound();
   }
 
-  const records = complianceRecords.filter((r) => r.vehicleId === vehicle.id) as ComplianceRecord[];
-
   return (
-    <div className="container mx-auto">
-      <div className="mb-8 flex items-center justify-between">
+    <>
+       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold font-headline tracking-tight">{vehicle.make} {vehicle.model}</h1>
           <p className="text-muted-foreground">{vehicle.plateNumber}</p>
@@ -62,9 +62,21 @@ export default function VehicleDetailPage({ params }: { params: { id: string } }
         </div>
 
         <div className="lg:col-span-2">
-          <ComplianceList records={records} />
+          <Suspense fallback={<div>Loading compliance records...</div>}>
+            <ComplianceList vehicleId={vehicleId} />
+          </Suspense>
         </div>
       </div>
+    </>
+  )
+}
+
+export default function VehicleDetailPage({ params }: { params: { id: string } }) {
+  return (
+    <div className="container mx-auto">
+      <Suspense fallback={<div>Loading vehicle...</div>}>
+        <VehicleData vehicleId={params.id} />
+      </Suspense>
     </div>
   );
 }

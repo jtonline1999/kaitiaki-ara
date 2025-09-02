@@ -19,15 +19,17 @@ import {
 import { Button } from "@/components/ui/button";
 import { ComplianceForm } from "./compliance-form";
 import { differenceInDays, format, parseISO } from "date-fns";
+import { getComplianceRecordsForVehicle } from "@/lib/compliance";
 
-export function ComplianceList({ records }: { records: ComplianceRecord[] }) {
+export async function ComplianceList({ vehicleId }: { vehicleId: string }) {
+  const records = await getComplianceRecordsForVehicle(vehicleId);
   const now = new Date();
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Compliance Records</CardTitle>
-        <ComplianceForm mode="add">
+        <ComplianceForm mode="add" vehicleId={vehicleId}>
           <Button size="sm" className="gap-1">
             <PlusCircle className="h-4 w-4" />
             Add Record
@@ -78,7 +80,7 @@ export function ComplianceList({ records }: { records: ComplianceRecord[] }) {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                           <ComplianceForm mode="edit" record={record}>
+                           <ComplianceForm mode="edit" record={record} vehicleId={vehicleId}>
                               <button className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full">
                                 Edit
                               </button>

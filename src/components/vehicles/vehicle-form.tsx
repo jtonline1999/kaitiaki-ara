@@ -14,9 +14,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState, type ReactNode } from "react";
+import { useState, type ReactNode, useTransition } from "react";
 import { OcrModal } from "./ocr-modal";
 import { Loader2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { useToast } from "@/hooks/use-toast";
+import { addVehicle, updateVehicle } from "@/lib/vehicles";
+import { useRouter } from "next/navigation";
 
 type VehicleFormProps = {
   mode: "add" | "edit";
@@ -24,27 +38,87 @@ type VehicleFormProps = {
   children: ReactNode;
 };
 
+const formSchema = z.object({
+  plateNumber: z.string().min(1, "Plate number is required"),
+  make: z.string().min(1, "Make is required"),
+  model: z.string().min(1, "Model is required"),
+  year: z.coerce.number().min(1900, "Invalid year"),
+  vin: z.string().optional(),
+  color: z.string().optional(),
+  imageUrl: z.string().url("Invalid URL").optional(),
+});
+
 export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
+  const router = useRouter();
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: vehicle
+      ? { ...vehicle, vin: vehicle.vin ?? "", color: vehicle.color ?? "" }
+      : {
+          plateNumber: "",
+          make: "",
+          model: "",
+          year: new Date().getFullYear(),
+          vin: "",
+          color: "",
+          imageUrl: "https://picsum.photos/600/400"
+        },
+  });
   
-  // This would be a server action to call the getVehicleMetadata tool
   const fetchVehicleData = async () => {
     setIsFetching(true);
-    // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1500));
     
-    // In a real app, you would populate form fields with this data
     const mockData = {
       make: "Toyota",
-      model: "Corolla",
-      year: 2021,
+      model: "Hilux",
+      year: 2022,
       color: "Silver",
       vin: "123ABC456DEF789"
     };
-    console.log("Fetched data:", mockData);
+    
+    form.setValue("make", mockData.make);
+    form.setValue("model", mockData.model);
+    form.setValue("year", mockData.year);
+    form.setValue("color", mockData.color);
+    form.setValue("vin", mockData.vin);
 
     setIsFetching(false);
+  }
+
+  const onSubmit = (values: z.infer<typeof formSchema>) => {
+    startTransition(async () => {
+      try {
+        const vehicleData = {
+            ...values,
+            vin: values.vin || "",
+            color: values.color || "",
+            imageUrl: values.imageUrl || 'https://picsum.photos/600/400'
+        };
+
+        if (mode === 'add') {
+          await addVehicle(vehicleData);
+          toast({ title: 'Vehicle Added', description: 'The new vehicle has been saved.' });
+        } else if (vehicle) {
+          await updateVehicle(vehicle.id, vehicleData);
+          toast({ title: 'Vehicle Updated', description: 'The vehicle has been updated.' });
+        }
+        form.reset();
+        setOpen(false);
+        router.refresh();
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Save Failed",
+          description: "Could not save vehicle. Please try again.",
+        });
+      }
+    });
   }
 
   return (
@@ -57,63 +131,112 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
             Enter your vehicle's details below. You can start with the plate number.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="plateNumber" className="text-right">
-              Plate
-            </Label>
-            <Input
-              id="plateNumber"
-              defaultValue={vehicle?.plateNumber}
-              className="col-span-3"
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
+            <FormField
+              control={form.control}
+              name="plateNumber"
+              render={({ field }) => (
+                <FormItem className="grid grid-cols-4 items-center gap-4">
+                  <FormLabel className="text-right">Plate</FormLabel>
+                  <FormControl className="col-span-3">
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage className="col-span-4" />
+                </FormItem>
+              )}
             />
-          </div>
-          <div className="col-start-2 col-span-3">
-             <Button variant="outline" size="sm" onClick={fetchVehicleData} disabled={isFetching}>
-                {isFetching && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Fetch Details from Plate
-            </Button>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="make" className="text-right">
-              Make
-            </Label>
-            <Input id="make" defaultValue={vehicle?.make} className="col-span-3" />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="model" className="text-right">
-              Model
-            </Label>
-            <Input id="model" defaultValue={vehicle?.model} className="col-span-3" />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="year" className="text-right">
-              Year
-            </Label>
-            <Input id="year" type="number" defaultValue={vehicle?.year} className="col-span-3" />
-          </div>
-           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="vin" className="text-right">
-              VIN
-            </Label>
-            <Input id="vin" defaultValue={vehicle?.vin} className="col-span-3" />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="color" className="text-right">
-              Color
-            </Label>
-            <Input id="color" defaultValue={vehicle?.color} className="col-span-3" />
-          </div>
-        </div>
-        <DialogFooter className="sm:justify-between">
-          <OcrModal onDataExtracted={(text) => console.log(text)} />
-          <div className="flex gap-2">
-            <DialogClose asChild>
-              <Button type="button" variant="secondary">Cancel</Button>
-            </DialogClose>
-            <Button type="submit" onClick={() => setOpen(false)}>Save</Button>
-          </div>
-        </DialogFooter>
+            
+            <div className="col-start-2 col-span-3">
+              <Button type="button" variant="outline" size="sm" onClick={fetchVehicleData} disabled={isFetching}>
+                  {isFetching && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Fetch Details from Plate
+              </Button>
+            </div>
+
+            <FormField
+              control={form.control}
+              name="make"
+              render={({ field }) => (
+                <FormItem className="grid grid-cols-4 items-center gap-4">
+                  <FormLabel className="text-right">Make</FormLabel>
+                  <FormControl className="col-span-3">
+                    <Input {...field} />
+                  </FormControl>
+                   <FormMessage className="col-span-3 col-start-2" />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="model"
+              render={({ field }) => (
+                <FormItem className="grid grid-cols-4 items-center gap-4">
+                  <FormLabel className="text-right">Model</FormLabel>
+                  <FormControl className="col-span-3">
+                    <Input {...field} />
+                  </FormControl>
+                   <FormMessage className="col-span-3 col-start-2" />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="year"
+              render={({ field }) => (
+                <FormItem className="grid grid-cols-4 items-center gap-4">
+                  <FormLabel className="text-right">Year</FormLabel>
+                  <FormControl className="col-span-3">
+                    <Input type="number" {...field} />
+                  </FormControl>
+                   <FormMessage className="col-span-3 col-start-2" />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="vin"
+              render={({ field }) => (
+                <FormItem className="grid grid-cols-4 items-center gap-4">
+                  <FormLabel className="text-right">VIN</FormLabel>
+                  <FormControl className="col-span-3">
+                    <Input {...field} />
+                  </FormControl>
+                   <FormMessage className="col-span-3 col-start-2" />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="color"
+              render={({ field }) => (
+                <FormItem className="grid grid-cols-4 items-center gap-4">
+                  <FormLabel className="text-right">Color</FormLabel>
+                  <FormControl className="col-span-3">
+                    <Input {...field} />
+                  </FormControl>
+                   <FormMessage className="col-span-3 col-start-2" />
+                </FormItem>
+              )}
+            />
+            
+            <DialogFooter className="sm:justify-between pt-4">
+              <OcrModal onDataExtracted={(text) => console.log(text)} />
+              <div className="flex gap-2">
+                <DialogClose asChild>
+                  <Button type="button" variant="secondary">Cancel</Button>
+                </DialogClose>
+                <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save
+                </Button>
+              </div>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

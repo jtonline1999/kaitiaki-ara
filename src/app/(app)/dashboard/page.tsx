@@ -1,6 +1,7 @@
 import { UpcomingEvents } from '@/components/dashboard/upcoming-events';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CalendarClock } from 'lucide-react';
+import { Suspense } from 'react';
 
 export default function DashboardPage() {
   return (
@@ -24,7 +25,9 @@ export default function DashboardPage() {
             <CalendarClock className="h-6 w-6 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <UpcomingEvents />
+            <Suspense fallback={<div>Loading events...</div>}>
+              <UpcomingEvents />
+            </Suspense>
           </CardContent>
         </Card>
       </div>

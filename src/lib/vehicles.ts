@@ -4,12 +4,19 @@ import { db, auth } from './firebase';
 import { collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
 import type { Vehicle } from './types';
 import { revalidatePath } from 'next/cache';
+import { getAuth } from 'firebase/auth/next-server';
+import { cookies } from 'next/headers';
 
 const vehiclesCollection = collection(db, 'vehicles');
 
+async function getCurrentUser() {
+  const auth = getAuth({ cookies });
+  return await auth.getCurrentUser();
+}
+
 // CREATE
 export async function addVehicle(vehicleData: Omit<Vehicle, 'id' | 'userId'>) {
-  const user = auth.currentUser;
+  const user = await getCurrentUser();
   if (!user) throw new Error('You must be logged in to add a vehicle.');
 
   const docRef = await addDoc(vehiclesCollection, {
@@ -22,7 +29,7 @@ export async function addVehicle(vehicleData: Omit<Vehicle, 'id' | 'userId'>) {
 
 // READ (all for current user)
 export async function getVehicles(): Promise<Vehicle[]> {
-  const user = auth.currentUser;
+  const user = await getCurrentUser();
   if (!user) return [];
   
   const q = query(vehiclesCollection, where('userId', '==', user.uid));
@@ -32,7 +39,7 @@ export async function getVehicles(): Promise<Vehicle[]> {
 
 // READ (one)
 export async function getVehicle(id: string): Promise<Vehicle | null> {
-  const user = auth.currentUser;
+  const user = await getCurrentUser();
   if (!user) return null;
 
   const docRef = doc(db, 'vehicles', id);
@@ -50,7 +57,7 @@ export async function getVehicle(id: string): Promise<Vehicle | null> {
 
 // UPDATE
 export async function updateVehicle(id: string, vehicleData: Partial<Omit<Vehicle, 'id' | 'userId'>>) {
-   const user = auth.currentUser;
+   const user = await getCurrentUser();
    if (!user) throw new Error('You must be logged in to update a vehicle.');
 
   // Ensure user owns the vehicle before updating
@@ -67,7 +74,7 @@ export async function updateVehicle(id: string, vehicleData: Partial<Omit<Vehicl
 
 // DELETE
 export async function deleteVehicle(id: string) {
-  const user = auth.currentUser;
+  const user = await getCurrentUser();
   if (!user) throw new Error('You must be logged in to delete a vehicle.');
 
   // Ensure user owns the vehicle before deleting

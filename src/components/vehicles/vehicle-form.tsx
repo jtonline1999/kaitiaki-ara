@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { addVehicle, updateVehicle } from "@/lib/vehicles";
+import { useRouter } from "next/navigation";
 
 type VehicleFormProps = {
   mode: "add" | "edit";
@@ -52,6 +53,7 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
   const [open, setOpen] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -108,6 +110,7 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
         }
         form.reset();
         setOpen(false);
+        // No longer need router.refresh() because revalidatePath is used in the server action
       } catch (error: any) {
         toast({
           variant: "destructive",

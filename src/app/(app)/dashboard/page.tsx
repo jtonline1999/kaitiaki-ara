@@ -1,10 +1,28 @@
 
 'use client';
 
-import { UpcomingEvents } from '@/components/dashboard/upcoming-events';
+export const dynamic = 'force-dynamic'; // ← ADDED
+export const revalidate = 0;             // ← ADDED
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CalendarClock } from 'lucide-react';
-import { Suspense } from 'react';
+
+import dynamic from 'next/dynamic'; // ← ADDED
+const UpcomingEvents = dynamic(
+  () =>
+    import('@/components/dashboard/upcoming-events').then(
+      (m) => m.UpcomingEvents
+    ),
+  {
+    ssr: false, // ← ADDED: never run this on the server/prerender
+    loading: () => <div>Loading events...</div>, // ← ADDED
+  }
+);
+
+/*import { UpcomingEvents } from '@/components/dashboard/upcoming-events';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CalendarClock } from 'lucide-react';
+import { Suspense } from 'react';*/
 
 export default function DashboardPage() {
   return (

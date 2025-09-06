@@ -11,8 +11,9 @@ import { differenceInDays, parseISO } from 'date-fns';
 import { FileText, ShieldCheck, Truck, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '../ui/button';
-import { getUpcomingComplianceRecords } from '@/lib/compliance';
-import { getVehicleClientSide } from '@/lib/vehicles';
+import { auth } from '@/lib/firebase';
+import { getUpcomingComplianceRecordsForUser } from '@/lib/repos/complianceRepo';
+import { getVehicleForUser, getVehiclesForUser } from '@/lib/repos/vehiclesRepo';
 
 const iconMap = {
   Registration: <FileText className="h-4 w-4" />,
@@ -22,19 +23,28 @@ const iconMap = {
 };
 
 export async function UpcomingEvents() {
-  const now = new Date();
-  const upcomingRecords = await getUpcomingComplianceRecords(30);
+  const user = auth.currentUser;
+  if (!user) {
+    return (
+       <div className="py-10 text-center text-sm text-muted-foreground">
+        Please sign in to see upcoming events.
+      </div>
+    );
+  }
 
-  const recordsWithVehicles = await Promise.all(
-    upcomingRecords.map(async (record) => {
-      const vehicle = await getVehicleClientSide(record.vehicleId);
+  const now = new Date();
+  const upcomingRecords = await getUpcomingComplianceRecordsForUser(user.uid, 30);
+  const userVehicles = await getVehiclesForUser(user.uid);
+  const vehicleMap = new Map(userVehicles.map(v => [v.id, v]));
+
+  const recordsWithVehicles = upcomingRecords.map((record) => {
+      const vehicle = vehicleMap.get(record.vehicleId);
       return {
         ...record,
         vehicle,
         daysUntilExpiry: differenceInDays(parseISO(record.expiryDate), now),
       };
     })
-  );
 
   const sortedRecords = recordsWithVehicles.sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry);
 

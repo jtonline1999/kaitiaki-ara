@@ -1,16 +1,16 @@
 
 'use client';
 
-import type { Vehicle, ComplianceRecord } from '@/lib/types';
+import type { Vehicle } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ComplianceList } from '@/components/vehicles/compliance-list';
 import { notFound, useParams } from 'next/navigation';
 import { Truck } from 'lucide-react';
 import { VehicleForm } from '@/components/vehicles/vehicle-form';
-import { getVehicleClientSide } from '@/lib/vehicles';
 import { Suspense, useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { getVehicleForUser } from '@/lib/repos/vehiclesRepo';
 
 function VehicleData() {
   const params = useParams();
@@ -20,14 +20,14 @@ function VehicleData() {
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-      if (user && vehicleId) {
-          getVehicleClientSide(vehicleId).then(data => {
-              setVehicle(data);
-              setLoading(false);
-          });
-      } else if (!user) {
-          setLoading(false);
-      }
+    if (user && vehicleId) {
+      getVehicleForUser(user.uid, vehicleId).then(data => {
+        setVehicle(data);
+        setLoading(false);
+      });
+    } else if (!user) {
+      setLoading(false);
+    }
   }, [user, vehicleId]);
 
 

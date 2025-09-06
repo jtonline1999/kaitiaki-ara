@@ -2,8 +2,11 @@
 import { db, auth } from './firebase';
 import { collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, query, where, orderBy } from 'firebase/firestore';
 import type { ComplianceRecord } from './types';
-import { addDays, formatISO } from 'date-fns';
+import { addDays } from 'date-fns';
 import { getVehiclesClientSide } from './vehicles';
+
+// This file is now deprecated and will be removed in a future step.
+// Logic has been moved to /lib/repos/complianceRepo.ts
 
 const complianceCollection = collection(db, 'complianceRecords');
 

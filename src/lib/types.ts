@@ -1,6 +1,6 @@
 export type Vehicle = {
   id: string;
-  userId: string; // Added to associate vehicle with a user
+  ownerUid: string; // Renamed from userId for clarity and consistency
   plateNumber: string;
   vin: string;
   make: string;
@@ -13,6 +13,7 @@ export type Vehicle = {
 export type ComplianceRecord = {
   id: string;
   vehicleId: string;
+  ownerUid: string; // Added to enable owner-scoped rules and queries
   type: 'Registration' | 'WOF' | 'RUC' | 'Insurance';
   expiryDate: string; // ISO 8601 string
   predictedExpiryDate?: string; // ISO 8601 string, for RUC

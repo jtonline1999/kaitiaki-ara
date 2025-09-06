@@ -8,6 +8,8 @@ export type Vehicle = {
   year: number;
   color: string;
   imageUrl: string;
+  createdAt?: any; // From serverTimestamp
+  updatedAt?: any; // From serverTimestamp
 };
 
 export type ComplianceRecord = {

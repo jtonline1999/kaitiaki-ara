@@ -6,7 +6,7 @@ import { VehicleCard } from '@/components/vehicles/vehicle-card';
 import { Suspense, useEffect, useState } from 'react';
 import type { Vehicle } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
-import { getVehiclesForUser } from '@/lib/repos/vehiclesRepo';
+import { listVehicles } from '@/lib/repos/vehiclesRepo';
 
 function VehicleGrid() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -15,7 +15,7 @@ function VehicleGrid() {
 
   useEffect(() => {
     if (user) {
-      getVehiclesForUser(user.uid).then((data) => {
+      listVehicles().then((data) => {
         setVehicles(data);
         setLoading(false);
       });

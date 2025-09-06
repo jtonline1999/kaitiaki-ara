@@ -10,7 +10,7 @@ import { AlertTriangle, Loader2, MoreVertical, Trash2, Truck } from 'lucide-reac
 import { VehicleForm } from '@/components/vehicles/vehicle-form';
 import { Suspense, useEffect, useState, useTransition } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { getVehicleForUser } from '@/lib/repos/vehiclesRepo';
+import { getVehicle, deleteVehicle } from '@/lib/repos/vehiclesRepo';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,9 +30,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { deleteVehicle } from '@/lib/vehicles';
 import { useToast } from '@/hooks/use-toast';
-import { auth } from '@/lib/firebase';
 
 function VehicleData() {
   const params = useParams();
@@ -46,7 +44,7 @@ function VehicleData() {
 
   useEffect(() => {
     if (user && vehicleId) {
-      getVehicleForUser(user.uid, vehicleId).then(data => {
+      getVehicle(vehicleId).then(data => {
         setVehicle(data);
         setLoading(false);
       });
@@ -58,10 +56,7 @@ function VehicleData() {
   const handleDelete = async () => {
     startTransition(async () => {
       try {
-        const idToken = await auth.currentUser?.getIdToken();
-        if (!idToken) throw new Error("Authentication required.");
-
-        await deleteVehicle(idToken, vehicleId);
+        await deleteVehicle(vehicleId);
         toast({
           title: 'Vehicle Deleted',
           description: 'The vehicle and its records have been removed.',

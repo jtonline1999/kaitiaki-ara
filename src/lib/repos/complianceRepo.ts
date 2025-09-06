@@ -14,10 +14,11 @@ import {
   where,
   writeBatch,
   Timestamp,
+  onSnapshot,
+  Unsubscribe,
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import type { ComplianceRecord } from '@/lib/types';
-import { getVehicle } from './vehiclesRepo';
 
 const COMPLIANCE_COLLECTION = 'complianceRecords';
 const VEHICLES_COLLECTION = 'vehicles';
@@ -46,6 +47,36 @@ export async function listComplianceRecords(options?: {
     return [];
   }
 }
+
+/** Sets up a real-time listener for compliance records. */
+export function listenToListComplianceRecords(
+  callback: (records: ComplianceRecord[]) => void,
+  options?: { vehicleId?: string }
+): Unsubscribe {
+  const user = auth.currentUser;
+  if (!user) {
+    console.warn('No user logged in, cannot listen to compliance records.');
+    return () => {};
+  }
+
+  const ref = collection(db, COMPLIANCE_COLLECTION);
+  const clauses = [where('ownerUid', '==', user.uid)];
+  if (options?.vehicleId) {
+    clauses.push(where('vehicleId', '==', options.vehicleId));
+  }
+
+  const q = query(ref, ...clauses, orderBy('expiryDate', 'desc'));
+
+  const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const records = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() } as ComplianceRecord));
+    callback(records);
+  }, (error) => {
+    console.error('Error listening to compliance records:', error);
+  });
+
+  return unsubscribe;
+}
+
 
 /** Get a single compliance record (verifies ownership after fetch). */
 export async function getComplianceRecord(id: string): Promise<ComplianceRecord | null> {
@@ -87,12 +118,16 @@ export async function createComplianceRecord(
     }
 
     const ref = collection(db, COMPLIANCE_COLLECTION);
-    const docData = {
+    const docData: any = {
       ...data,
       ownerUid: user.uid,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
+    
+    if (data.predictedExpiryDate === undefined) {
+      delete docData.predictedExpiryDate;
+    }
 
     const created = await addDoc(ref, docData);
     return created.id;
@@ -200,4 +235,38 @@ export async function listUpcomingComplianceRecords(days: number): Promise<Compl
     console.error('Error listing upcoming compliance records:', err);
     return [];
   }
+}
+
+/** Sets up a real-time listener for upcoming compliance records within N days. */
+export function listenToUpcomingComplianceRecords(
+  days: number,
+  callback: (records: ComplianceRecord[]) => void
+): Unsubscribe {
+  const user = auth.currentUser;
+  if (!user) {
+    console.warn('No user logged in, cannot listen to upcoming compliance records.');
+    return () => {};
+  }
+
+  const now = new Date();
+  const start = Timestamp.fromDate(now);
+  const end = Timestamp.fromDate(new Date(now.getTime() + days * 24 * 60 * 60 * 1000));
+
+  const ref = collection(db, COMPLIANCE_COLLECTION);
+  const q = query(
+    ref,
+    where('ownerUid', '==', user.uid),
+    where('expiryDate', '>=', start),
+    where('expiryDate', '<=', end),
+    orderBy('expiryDate', 'asc')
+  );
+
+  const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const records = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() } as ComplianceRecord));
+    callback(records);
+  }, (error) => {
+    console.error('Error listening to upcoming compliance records:', error);
+  });
+
+  return unsubscribe;
 }

@@ -15,10 +15,10 @@ import { FileText, ShieldCheck, Truck, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '../ui/button';
 import { useAuth } from '@/hooks/use-auth';
-import { listUpcomingComplianceRecords } from '@/lib/repos/complianceRepo';
+import { listenToUpcomingComplianceRecords } from '@/lib/repos/complianceRepo';
 import { useEffect, useState } from 'react';
 import type { ComplianceRecord, Vehicle } from '@/lib/types';
-import { listVehicles } from '@/lib/repos/vehiclesRepo';
+import { listenToListVehicles } from '@/lib/repos/vehiclesRepo';
 
 const iconMap = {
   Registration: <FileText className="h-4 w-4" />,
@@ -43,34 +43,46 @@ export function UpcomingEvents() {
     }
     if (!user) {
       setLoading(false);
+      setEvents([]);
       return;
     }
 
-    async function fetchUpcomingEvents() {
-      setLoading(true);
-      const [upcomingRecords, userVehicles] = await Promise.all([
-        listUpcomingComplianceRecords(30),
-        listVehicles(),
-      ]);
-      
-      const vehicleMap = new Map(userVehicles.map(v => [v.id, v]));
-      const now = new Date();
+    setLoading(true);
 
-      const recordsWithVehicles = upcomingRecords.map((record) => {
+    let vehicleMap = new Map<string, Vehicle>();
+
+    // Listen to vehicles to enrich the compliance records
+    const unsubscribeVehicles = listenToListVehicles((userVehicles) => {
+      vehicleMap = new Map(userVehicles.map(v => [v.id, v]));
+      // We might already have events, so we need to update them with new vehicle info
+      setEvents(prevEvents => enrichRecords(prevEvents, vehicleMap));
+    });
+
+    // Listen to upcoming compliance records
+    const unsubscribeCompliance = listenToUpcomingComplianceRecords(30, (upcomingRecords) => {
+      const enriched = enrichRecords(upcomingRecords, vehicleMap);
+      setEvents(enriched);
+      setLoading(false);
+    });
+
+    function enrichRecords(records: ComplianceRecord[], vehicles: Map<string, Vehicle>): UpcomingEvent[] {
+      const now = new Date();
+      const recordsWithVehicles = records.map((record) => {
         const expiryDate = record.expiryDate.toDate(); // Convert Timestamp to Date
         return {
           ...record,
-          vehicle: vehicleMap.get(record.vehicleId),
+          vehicle: vehicles.get(record.vehicleId),
           daysUntilExpiry: differenceInDays(expiryDate, now),
         };
       });
-
-      const sortedRecords = recordsWithVehicles.sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry);
-      setEvents(sortedRecords);
-      setLoading(false);
+      return recordsWithVehicles.sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry);
     }
 
-    fetchUpcomingEvents();
+    // Cleanup subscriptions on unmount
+    return () => {
+      unsubscribeVehicles();
+      unsubscribeCompliance();
+    };
   }, [user, isAuthLoading]);
 
   if (loading) {

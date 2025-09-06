@@ -22,8 +22,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { ComplianceForm } from "./compliance-form";
 import { differenceInDays, format } from "date-fns";
-import { deleteComplianceRecord, listComplianceRecords } from "@/lib/repos/complianceRepo";
-import { useEffect, useState, useTransition } from "react";
+import { deleteComplianceRecord, listenToListComplianceRecords } from "@/lib/repos/complianceRepo";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
@@ -40,12 +40,17 @@ export function ComplianceList({ vehicleId }: { vehicleId: string }) {
     if (isAuthLoading) return;
     
     if (user) {
-      listComplianceRecords({ vehicleId }).then((data) => {
+      setLoading(true);
+      const unsubscribe = listenToListComplianceRecords((data) => {
         setRecords(data);
         setLoading(false);
-      });
+      }, { vehicleId });
+
+      // Cleanup subscription on unmount
+      return () => unsubscribe();
     } else {
       setLoading(false);
+      setRecords([]);
     }
   }, [user, vehicleId, isAuthLoading]);
 
@@ -57,8 +62,7 @@ export function ComplianceList({ vehicleId }: { vehicleId: string }) {
         title: "Record Deleted",
         description: "The compliance record has been removed.",
       });
-      setRecords(prev => prev.filter(r => r.id !== recordId));
-      router.refresh();
+      // No need to manually update state, onSnapshot will do it.
     } catch (error: any) {
       toast({
         variant: "destructive",

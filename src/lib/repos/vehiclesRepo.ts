@@ -12,6 +12,8 @@ import {
   doc,
   serverTimestamp,
   where,
+  onSnapshot,
+  Unsubscribe,
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import type { Vehicle } from '@/lib/types';
@@ -43,6 +45,33 @@ export async function listVehicles(): Promise<Vehicle[]> {
     return [];
   }
 }
+
+/** Sets up a real-time listener for vehicles owned by the current user. */
+export function listenToListVehicles(callback: (vehicles: Vehicle[]) => void): Unsubscribe {
+  const user = auth.currentUser;
+  if (!user) {
+    console.warn('No user logged in, cannot listen to vehicles.');
+    // Return a no-op unsubscribe function
+    return () => {};
+  }
+  
+  const ref = collection(db, VEHICLES_COLLECTION);
+  const q = query(
+    ref,
+    where('ownerUid', '==', user.uid),
+    orderBy('updatedAt', 'desc')
+  );
+
+  const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const vehicles = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Vehicle));
+    callback(vehicles);
+  }, (error) => {
+    console.error('Error listening to vehicle list:', error);
+  });
+  
+  return unsubscribe;
+}
+
 
 /** Get a single vehicle (verifies ownership after fetch). */
 export async function getVehicle(id: string): Promise<Vehicle | null> {

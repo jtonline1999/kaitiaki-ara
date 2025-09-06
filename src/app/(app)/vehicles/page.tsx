@@ -6,23 +6,32 @@ import { VehicleCard } from '@/components/vehicles/vehicle-card';
 import { Suspense, useEffect, useState } from 'react';
 import type { Vehicle } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
-import { listVehicles } from '@/lib/repos/vehiclesRepo';
+import { listenToListVehicles } from '@/lib/repos/vehiclesRepo';
 
 function VehicleGrid() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
 
   useEffect(() => {
-    if (user) {
-      listVehicles().then((data) => {
-        setVehicles(data);
-        setLoading(false);
-      });
-    } else {
-        setLoading(false);
+    if (isAuthLoading) {
+      return;
     }
-  }, [user]);
+    if (!user) {
+      setLoading(false);
+      setVehicles([]);
+      return;
+    }
+
+    setLoading(true);
+    const unsubscribe = listenToListVehicles((data) => {
+      setVehicles(data);
+      setLoading(false);
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, [user, isAuthLoading]);
   
   if (loading) {
       return <p>Loading vehicles...</p>;

@@ -2,23 +2,25 @@ import * as admin from 'firebase-admin';
 import type { Auth } from 'firebase-admin/auth';
 import type { Firestore } from 'firebase-admin/firestore';
 
-if (!admin.apps.length) {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-    });
-  } catch (error) {
-    console.error('Firebase Admin initialization error', error);
-  }
+function initializeAdminApp() {
+    if (!admin.apps.length) {
+        try {
+            admin.initializeApp({
+                credential: admin.credential.applicationDefault(),
+            });
+        } catch (error) {
+            console.error('Firebase Admin initialization error', error);
+            throw new Error('Failed to initialize Firebase Admin SDK.');
+        }
+    }
 }
 
-function getAdminAuth(): Auth {
+export function getAdminAuth(): Auth {
+    initializeAdminApp();
     return admin.auth();
 }
 
-function getAdminDb(): Firestore {
+export function getAdminDb(): Firestore {
+    initializeAdminApp();
     return admin.firestore();
 }
-
-export const adminAuth = getAdminAuth();
-export const adminDb = getAdminDb();

@@ -1,11 +1,12 @@
 import 'server-only';
-import { adminAuth } from '@/lib/firebase-admin';
+import { getAdminAuth } from '@/lib/firebase-admin';
 
 export async function getAuthenticatedUser(idToken: string) {
   if (!idToken) {
     throw new Error('ID token is required.');
   }
   try {
+    const adminAuth = getAdminAuth();
     const decodedToken = await adminAuth.verifyIdToken(idToken);
     return decodedToken;
   } catch (error) {

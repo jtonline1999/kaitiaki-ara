@@ -1,7 +1,7 @@
 
 'use server';
 
-import { adminDb } from '@/lib/firebase-admin';
+import { getAdminDb } from '@/lib/firebase-admin';
 import { getAuthenticatedUser } from '@/lib/auth-server';
 import type { Vehicle } from './types';
 import { revalidatePath } from 'next/cache';
@@ -43,6 +43,7 @@ export async function getVehicleClientSide(id: string): Promise<Vehicle | null> 
 // CREATE (Server Action)
 export async function addVehicle(idToken: string, vehicleData: Omit<Vehicle, 'id' | 'userId'>) {
   const { uid } = await getAuthenticatedUser(idToken);
+  const adminDb = getAdminDb();
   const vehiclesCollection = adminDb.collection('vehicles');
   const docRef = await vehiclesCollection.add({
     ...vehicleData,
@@ -57,7 +58,7 @@ export async function addVehicle(idToken: string, vehicleData: Omit<Vehicle, 'id
 // UPDATE (Server Action)
 export async function updateVehicle(idToken: string, id: string, vehicleData: Partial<Omit<Vehicle, 'id' | 'userId'>>) {
    const { uid } = await getAuthenticatedUser(idToken);
-
+   const adminDb = getAdminDb();
   const docRef = adminDb.collection('vehicles').doc(id);
   const docSnap = await docRef.get();
 
@@ -78,7 +79,7 @@ export async function updateVehicle(idToken: string, id: string, vehicleData: Pa
 // DELETE (Server Action)
 export async function deleteVehicle(idToken: string, id: string) {
   const { uid } = await getAuthenticatedUser(idToken);
-
+  const adminDb = getAdminDb();
   const docRef = adminDb.collection('vehicles').doc(id);
   const docSnap = await docRef.get();
 

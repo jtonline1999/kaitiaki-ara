@@ -32,7 +32,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { addVehicle, updateVehicle } from "@/lib/vehicles";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuth } from "@/hooks/use-auth";
 import { auth } from "@/lib/firebase";
 
 type VehicleFormProps = {

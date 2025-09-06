@@ -6,7 +6,7 @@ import { VehicleCard } from '@/components/vehicles/vehicle-card';
 import { getVehiclesClientSide } from '@/lib/vehicles';
 import { Suspense, useEffect, useState } from 'react';
 import type { Vehicle } from '@/lib/types';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth } from '@/hooks/use-auth';
 
 function VehicleGrid() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);

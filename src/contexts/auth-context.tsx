@@ -1,42 +1,16 @@
 
 'use client';
 
-import type { ReactNode } from 'react';
-import { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, type User } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
-import { usePathname, useRouter } from 'next/navigation';
-import Cookies from 'js-cookie';
+import { useAuth as useFirebaseAuth } from '@/hooks/use-auth';
+import type { User } from 'firebase/auth';
 
-type AuthContextType = {
-  user: User | null;
-  isLoading: boolean;
-};
+// This file is now a compatibility layer to avoid breaking existing components
+// that use the old useAuth hook. It now delegates to the new useAuth hook.
 
-const AuthContext = createContext<AuthContextType>({ user: null, isLoading: true });
-
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      if (user) {
-        Cookies.set('user', JSON.stringify(user));
-      } else {
-        Cookies.remove('user');
-      }
-      setIsLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  return (
-    <AuthContext.Provider value={{ user, isLoading }}>
-      {isLoading ? <div className="flex h-screen items-center justify-center">Loading...</div> : children}
-    </AuthContext.Provider>
-  );
-};
-
-export const useAuth = () => useContext(AuthContext);
+/**
+ * @deprecated Use `useAuth` from `@/hooks/use-auth` instead.
+ */
+export function useAuth() {
+  const { user, isLoading } = useFirebaseAuth();
+  return { user, loading: isLoading };
+}

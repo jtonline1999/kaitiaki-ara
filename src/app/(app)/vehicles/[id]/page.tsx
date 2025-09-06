@@ -10,7 +10,7 @@ import { Truck } from 'lucide-react';
 import { VehicleForm } from '@/components/vehicles/vehicle-form';
 import { getVehicleClientSide } from '@/lib/vehicles';
 import { Suspense, useEffect, useState } from 'react';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth } from '@/hooks/use-auth';
 
 function VehicleData() {
   const params = useParams();

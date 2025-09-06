@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "NEXT_PUBLIC_USE_EMULATORS=true next dev --turbopack -p 9002",
     "emulators": "firebase emulators:start --import=./.firebase/emulators-data --export-on-exit",
-    "emulators:seed": "echo 'Seeding not yet implemented'",
+    "emulators:seed": "ts-node scripts/seed/emulators-seed.ts",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",

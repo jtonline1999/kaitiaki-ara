@@ -43,8 +43,8 @@ export async function getVehicleClientSide(id: string): Promise<Vehicle | null> 
 // CREATE (Server Action)
 export async function addVehicle(idToken: string, vehicleData: Omit<Vehicle, 'id' | 'userId'>) {
   const { uid } = await getAuthenticatedUser(idToken);
-
-  const docRef = await adminDb.collection('vehicles').add({
+  const vehiclesCollection = adminDb.collection('vehicles');
+  const docRef = await vehiclesCollection.add({
     ...vehicleData,
     userId: uid,
   });

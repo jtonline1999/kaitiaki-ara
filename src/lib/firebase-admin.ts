@@ -1,4 +1,6 @@
 import * as admin from 'firebase-admin';
+import type { Auth } from 'firebase-admin/auth';
+import type { Firestore } from 'firebase-admin/firestore';
 
 if (!admin.apps.length) {
   try {
@@ -10,5 +12,13 @@ if (!admin.apps.length) {
   }
 }
 
-export const adminAuth = admin.auth();
-export const adminDb = admin.firestore();
+function getAdminAuth(): Auth {
+    return admin.auth();
+}
+
+function getAdminDb(): Firestore {
+    return admin.firestore();
+}
+
+export const adminAuth = getAdminAuth();
+export const adminDb = getAdminDb();

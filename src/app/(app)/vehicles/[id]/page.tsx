@@ -35,7 +35,7 @@ import { useToast } from '@/hooks/use-toast';
 function VehicleData() {
   const params = useParams();
   const vehicleId = params.id as string;
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
@@ -43,15 +43,21 @@ function VehicleData() {
   const { toast } = useToast();
 
   useEffect(() => {
+    // Wait until the auth state is resolved before fetching data.
+    if (isAuthLoading) {
+      return;
+    }
+
     if (user && vehicleId) {
       getVehicle(vehicleId).then(data => {
         setVehicle(data);
         setLoading(false);
       });
-    } else if (!user) {
+    } else {
+      // If there's no user after auth has loaded, we can't fetch the vehicle.
       setLoading(false);
     }
-  }, [user, vehicleId]);
+  }, [user, vehicleId, isAuthLoading]);
 
   const handleDelete = async () => {
     startTransition(async () => {

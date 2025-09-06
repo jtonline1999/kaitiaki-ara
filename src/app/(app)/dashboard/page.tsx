@@ -1,3 +1,6 @@
+
+'use client';
+
 import { UpcomingEvents } from '@/components/dashboard/upcoming-events';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CalendarClock } from 'lucide-react';

@@ -21,55 +21,53 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { ComplianceForm } from "./compliance-form";
-import { differenceInDays, format, parseISO } from "date-fns";
-import { deleteComplianceRecord, getComplianceRecordsForVehicle } from "@/lib/compliance";
+import { differenceInDays, format } from "date-fns";
+import { deleteComplianceRecord, listComplianceRecords } from "@/lib/repos/complianceRepo";
 import { useEffect, useState, useTransition } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { auth } from "@/lib/firebase";
 
 export function ComplianceList({ vehicleId }: { vehicleId: string }) {
   const [records, setRecords] = useState<ComplianceRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
+    if (isAuthLoading) return;
+    
     if (user) {
-      getComplianceRecordsForVehicle(user.uid, vehicleId).then((data) => {
+      listComplianceRecords({ vehicleId }).then((data) => {
         setRecords(data);
         setLoading(false);
       });
     } else {
       setLoading(false);
     }
-  }, [user, vehicleId]);
+  }, [user, vehicleId, isAuthLoading]);
 
   const handleDelete = async (recordId: string) => {
-    startTransition(async () => {
-      try {
-        const idToken = await auth.currentUser?.getIdToken();
-        if (!idToken) throw new Error("Authentication required.");
-
-        await deleteComplianceRecord(idToken, recordId);
-        toast({
-          title: "Record Deleted",
-          description: "The compliance record has been removed.",
-        });
-        // Optimistically remove from UI
-        setRecords(prev => prev.filter(r => r.id !== recordId));
-        router.refresh();
-      } catch (error: any) {
-        toast({
-          variant: "destructive",
-          title: "Deletion Failed",
-          description: error.message,
-        });
-      }
-    });
+    setIsDeleting(true);
+    try {
+      await deleteComplianceRecord(recordId);
+      toast({
+        title: "Record Deleted",
+        description: "The compliance record has been removed.",
+      });
+      setRecords(prev => prev.filter(r => r.id !== recordId));
+      router.refresh();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Deletion Failed",
+        description: error.message,
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const now = new Date();
@@ -104,7 +102,7 @@ export function ComplianceList({ vehicleId }: { vehicleId: string }) {
             </TableHeader>
             <TableBody>
               {records.map((record) => {
-                const expiryDate = parseISO(record.expiryDate);
+                const expiryDate = record.expiryDate.toDate();
                 const daysUntilExpiry = differenceInDays(expiryDate, now);
                 const isExpired = daysUntilExpiry < 0;
                 const isExpiringSoon = daysUntilExpiry >= 0 && daysUntilExpiry <= 30;
@@ -141,7 +139,7 @@ export function ComplianceList({ vehicleId }: { vehicleId: string }) {
                           <DropdownMenuItem 
                             className="text-destructive focus:text-destructive"
                             onClick={() => handleDelete(record.id)}
-                            disabled={isPending}
+                            disabled={isDeleting}
                            >
                             <Trash2 className="mr-2 h-4 w-4" />
                             Delete

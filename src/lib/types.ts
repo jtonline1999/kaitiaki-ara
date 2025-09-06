@@ -1,6 +1,8 @@
+import type { Timestamp } from 'firebase/firestore';
+
 export type Vehicle = {
   id: string;
-  ownerUid: string; // Renamed from userId for clarity and consistency
+  ownerUid: string;
   plateNumber: string;
   vin: string;
   make: string;
@@ -8,15 +10,17 @@ export type Vehicle = {
   year: number;
   color: string;
   imageUrl: string;
-  createdAt?: any; // From serverTimestamp
-  updatedAt?: any; // From serverTimestamp
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
 };
 
 export type ComplianceRecord = {
   id: string;
   vehicleId: string;
-  ownerUid: string; // Added to enable owner-scoped rules and queries
+  ownerUid: string;
   type: 'Registration' | 'WOF' | 'RUC' | 'Insurance';
-  expiryDate: string; // ISO 8601 string
-  predictedExpiryDate?: string; // ISO 8601 string, for RUC
+  expiryDate: Timestamp; // Changed from string to Timestamp
+  predictedExpiryDate?: Timestamp;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
 };

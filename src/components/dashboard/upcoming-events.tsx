@@ -1,3 +1,6 @@
+
+'use client';
+
 import {
   Table,
   TableBody,
@@ -7,13 +10,15 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { differenceInDays, parseISO } from 'date-fns';
+import { differenceInDays } from 'date-fns';
 import { FileText, ShieldCheck, Truck, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '../ui/button';
-import { auth } from '@/lib/firebase';
-import { getUpcomingComplianceRecordsForUser } from '@/lib/repos/complianceRepo';
-import { getVehicleForUser, getVehiclesForUser } from '@/lib/repos/vehiclesRepo';
+import { useAuth } from '@/hooks/use-auth';
+import { listUpcomingComplianceRecords } from '@/lib/repos/complianceRepo';
+import { useEffect, useState } from 'react';
+import type { ComplianceRecord, Vehicle } from '@/lib/types';
+import { listVehicles } from '@/lib/repos/vehiclesRepo';
 
 const iconMap = {
   Registration: <FileText className="h-4 w-4" />,
@@ -22,33 +27,69 @@ const iconMap = {
   Insurance: <Shield className="h-4 w-4" />,
 };
 
-export async function UpcomingEvents() {
-  const user = auth.currentUser;
+type UpcomingEvent = ComplianceRecord & {
+  vehicle?: Vehicle;
+  daysUntilExpiry: number;
+};
+
+export function UpcomingEvents() {
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const [events, setEvents] = useState<UpcomingEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (isAuthLoading) {
+      return;
+    }
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    async function fetchUpcomingEvents() {
+      setLoading(true);
+      const [upcomingRecords, userVehicles] = await Promise.all([
+        listUpcomingComplianceRecords(30),
+        listVehicles(),
+      ]);
+      
+      const vehicleMap = new Map(userVehicles.map(v => [v.id, v]));
+      const now = new Date();
+
+      const recordsWithVehicles = upcomingRecords.map((record) => {
+        const expiryDate = record.expiryDate.toDate(); // Convert Timestamp to Date
+        return {
+          ...record,
+          vehicle: vehicleMap.get(record.vehicleId),
+          daysUntilExpiry: differenceInDays(expiryDate, now),
+        };
+      });
+
+      const sortedRecords = recordsWithVehicles.sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry);
+      setEvents(sortedRecords);
+      setLoading(false);
+    }
+
+    fetchUpcomingEvents();
+  }, [user, isAuthLoading]);
+
+  if (loading) {
+    return (
+      <div className="py-10 text-center text-sm text-muted-foreground">
+        Loading upcoming events...
+      </div>
+    );
+  }
+
   if (!user) {
     return (
-       <div className="py-10 text-center text-sm text-muted-foreground">
+      <div className="py-10 text-center text-sm text-muted-foreground">
         Please sign in to see upcoming events.
       </div>
     );
   }
 
-  const now = new Date();
-  const upcomingRecords = await getUpcomingComplianceRecordsForUser(user.uid, 30);
-  const userVehicles = await getVehiclesForUser(user.uid);
-  const vehicleMap = new Map(userVehicles.map(v => [v.id, v]));
-
-  const recordsWithVehicles = upcomingRecords.map((record) => {
-      const vehicle = vehicleMap.get(record.vehicleId);
-      return {
-        ...record,
-        vehicle,
-        daysUntilExpiry: differenceInDays(parseISO(record.expiryDate), now),
-      };
-    })
-
-  const sortedRecords = recordsWithVehicles.sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry);
-
-  if (sortedRecords.length === 0) {
+  if (events.length === 0) {
     return (
       <div className="py-10 text-center text-sm text-muted-foreground">
         No upcoming renewals in the next 30 days. You're all set!
@@ -68,7 +109,7 @@ export async function UpcomingEvents() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sortedRecords.map((record) => (
+          {events.map((record) => (
             <TableRow key={record.id}>
               <TableCell>
                 <div className="font-medium">

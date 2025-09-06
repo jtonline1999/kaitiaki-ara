@@ -26,14 +26,14 @@ import { useState, type ReactNode } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { OcrModal } from "./ocr-modal";
 import { predictRucExpiry } from "@/ai/flows/predict-ruc-expiry";
 import { useToast } from "@/hooks/use-toast";
-import { addComplianceRecord, updateComplianceRecord } from "@/lib/compliance";
+import { createComplianceRecord, updateComplianceRecord } from "@/lib/repos/complianceRepo";
 import { useRouter } from "next/navigation";
-import { auth } from "@/lib/firebase";
+import { Timestamp } from "firebase/firestore";
 
 type ComplianceFormProps = {
   mode: "add" | "edit";
@@ -47,7 +47,7 @@ export function ComplianceForm({ mode, record, children, vehicleId }: Compliance
   const [open, setOpen] = useState(false);
   const [type, setType] = useState(record?.type || "");
   const [expiryDate, setExpiryDate] = useState<Date | undefined>(
-    record ? parseISO(record.expiryDate) : undefined
+    record ? record.expiryDate.toDate() : undefined
   );
   const [predictedRucDate, setPredictedRucDate] = useState<string | null>(null);
   const [isPredicting, setIsPredicting] = useState(false);
@@ -107,21 +107,18 @@ export function ComplianceForm({ mode, record, children, vehicleId }: Compliance
     setIsSaving(true);
 
     try {
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) throw new Error("Authentication required.");
-
       const recordData = {
         type: type as ComplianceRecord['type'],
-        expiryDate: expiryDate.toISOString(),
+        expiryDate: Timestamp.fromDate(expiryDate),
         vehicleId: vehicleId,
-        predictedExpiryDate: predictedRucDate ?? record?.predictedExpiryDate
+        predictedExpiryDate: predictedRucDate ? Timestamp.fromDate(new Date(predictedRucDate)) : record?.predictedExpiryDate
       };
 
       if (mode === 'add') {
-        await addComplianceRecord(idToken, recordData);
+        await createComplianceRecord(recordData);
         toast({ title: 'Record Added', description: 'The new compliance record has been saved.' });
       } else if (record) {
-        await updateComplianceRecord(idToken, record.id, recordData);
+        await updateComplianceRecord(record.id, recordData);
         toast({ title: 'Record Updated', description: 'The compliance record has been updated.' });
       }
       setOpen(false);

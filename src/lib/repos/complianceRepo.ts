@@ -1,103 +1,203 @@
-import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, query, where, orderBy, writeBatch } from 'firebase/firestore';
-import type { ComplianceRecord, Vehicle } from '@/lib/types';
-import { addDays } from 'date-fns';
-import { getVehiclesForUser } from './vehiclesRepo';
+'use client';
 
-/**
- * Adds a new compliance record for a vehicle, ensuring the current user owns the vehicle.
- */
-export async function addComplianceRecordForUser(uid: string, recordData: Omit<ComplianceRecord, 'id' | 'ownerUid'>) {
-  // Security check: does the user own the vehicle they're adding a record for?
-  const vehicleDoc = await getDoc(doc(db, 'vehicles', recordData.vehicleId));
-  if (!vehicleDoc.exists() || vehicleDoc.data().ownerUid !== uid) {
-    throw new Error("Permission denied: You do not own the vehicle.");
+import {
+  collection,
+  query,
+  orderBy,
+  getDocs,
+  getDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  serverTimestamp,
+  where,
+  writeBatch,
+  Timestamp,
+} from 'firebase/firestore';
+import { db, auth } from '../firebase';
+import type { ComplianceRecord } from '@/lib/types';
+import { getVehicle } from './vehiclesRepo';
+
+const COMPLIANCE_COLLECTION = 'complianceRecords';
+const VEHICLES_COLLECTION = 'vehicles';
+
+/** List compliance records owned by the current user. */
+export async function listComplianceRecords(options?: {
+  vehicleId?: string;
+}): Promise<ComplianceRecord[]> {
+  const user = auth.currentUser;
+  if (!user) {
+    console.warn('No user logged in, cannot fetch compliance records.');
+    return [];
   }
 
-  const dataWithOwner = {
-    ...recordData,
-    ownerUid: uid,
-  };
+  const ref = collection(db, COMPLIANCE_COLLECTION);
+  const clauses = [where('ownerUid', '==', user.uid)];
+  if (options?.vehicleId) clauses.push(where('vehicleId', '==', options.vehicleId));
 
-  const docRef = await addDoc(collection(db, 'complianceRecords'), dataWithOwner);
-  return docRef.id;
-}
+  const q = query(ref, ...clauses, orderBy('expiryDate', 'desc'));
 
-/**
- * Retrieves all compliance records for a specific vehicle, if the user owns it.
- */
-export async function getComplianceRecordsForVehicleForUser(uid: string, vehicleId: string): Promise<ComplianceRecord[]> {
-  // We can query directly on ownerUid for security and indexing benefits.
-  const q = query(
-    collection(db, 'complianceRecords'), 
-    where('ownerUid', '==', uid),
-    where('vehicleId', '==', vehicleId),
-    orderBy('expiryDate', 'desc')
-  );
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ComplianceRecord));
-}
-
-/**
- * Retrieves upcoming compliance records for all vehicles owned by the user.
- */
-export async function getUpcomingComplianceRecordsForUser(uid: string, days: number): Promise<ComplianceRecord[]> {
-    const today = new Date();
-    const futureDate = addDays(today, days);
-
-    const q = query(
-        collection(db, 'complianceRecords'),
-        where('ownerUid', '==', uid),
-        where('expiryDate', '>=', today.toISOString()),
-        where('expiryDate', '<=', futureDate.toISOString()),
-        orderBy('expiryDate', 'asc')
-    );
-    
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ComplianceRecord));
-}
-
-
-/**
- * Updates a compliance record, ensuring the user owns the associated vehicle.
- */
-export async function updateComplianceRecordForUser(uid: string, id: string, recordData: Partial<Omit<ComplianceRecord, 'id' | 'ownerUid'>>) {
-  const docRef = doc(db, 'complianceRecords', id);
-  const docSnap = await getDoc(docRef);
-  if (!docSnap.exists() || docSnap.data().ownerUid !== uid) {
-    throw new Error("Permission denied or record not found.");
+  try {
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as ComplianceRecord));
+  } catch (err) {
+    console.error('Error listing compliance records:', err);
+    return [];
   }
-  await updateDoc(docRef, recordData);
 }
 
-/**
- * Deletes a compliance record, ensuring the user owns the associated vehicle.
- */
-export async function deleteComplianceRecordForUser(uid: string, id: string) {
-  const docRef = doc(db, 'complianceRecords', id);
-  const docSnap = await getDoc(docRef);
-  if (!docSnap.exists() || docSnap.data().ownerUid !== uid) {
-    throw new Error("Permission denied or record not found.");
+/** Get a single compliance record (verifies ownership after fetch). */
+export async function getComplianceRecord(id: string): Promise<ComplianceRecord | null> {
+  const user = auth.currentUser;
+  if (!user) {
+    console.warn('No user logged in, cannot fetch compliance record.');
+    return null;
   }
-  await deleteDoc(docRef);
+  try {
+    const docRef = doc(db, COMPLIANCE_COLLECTION, id);
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) return null;
+
+    const record = { id: snap.id, ...snap.data() } as ComplianceRecord;
+    if (record.ownerUid && record.ownerUid !== user.uid) {
+      console.warn('User does not have permission to access this record.');
+      return null;
+    }
+    return record;
+  } catch (err) {
+    console.error('Error getting compliance record:', err);
+    return null;
+  }
 }
 
-/**
- * Deletes all compliance records associated with a specific vehicle ID.
- * Intended for use when deleting a vehicle.
- */
-export async function deleteAllComplianceRecordsForVehicle(vehicleId: string) {
-    const q = query(collection(db, 'complianceRecords'), where('vehicleId', '==', vehicleId));
-    const snapshot = await getDocs(q);
-    
-    if (snapshot.empty) {
-        return;
+/** Create a new compliance record (verifies vehicle ownership; sets ownerUid and timestamps). */
+export async function createComplianceRecord(
+  data: Partial<Omit<ComplianceRecord, 'id'>> & { vehicleId: string }
+): Promise<string> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('User must be authenticated to create a compliance record.');
+
+  try {
+    // Verify the vehicle exists and belongs to the current user
+    const vehicleRef = doc(db, VEHICLES_COLLECTION, data.vehicleId);
+    const vehicleSnap = await getDoc(vehicleRef);
+    if (!vehicleSnap.exists() || (vehicleSnap.data() as any).ownerUid !== user.uid) {
+      throw new Error('Permission denied: You do not own the vehicle.');
     }
 
-    const batch = writeBatch(db);
-    snapshot.docs.forEach(doc => {
-        batch.delete(doc.ref);
-    });
+    const ref = collection(db, COMPLIANCE_COLLECTION);
+    const docData = {
+      ...data,
+      ownerUid: user.uid,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
 
+    const created = await addDoc(ref, docData);
+    return created.id;
+  } catch (err) {
+    console.error('Error creating compliance record:', err);
+    throw err;
+  }
+}
+
+/** Update a compliance record (verifies ownership; updates timestamp). */
+export async function updateComplianceRecord(
+  id: string,
+  patch: Partial<ComplianceRecord>
+): Promise<void> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('User must be authenticated to update a compliance record.');
+
+  try {
+    const current = await getComplianceRecord(id);
+    if (!current || (current.ownerUid && current.ownerUid !== user.uid)) {
+      throw new Error('Permission denied or record not found.');
+    }
+
+    if (patch.vehicleId && patch.vehicleId !== current.vehicleId) {
+      const newVeh = await getDoc(doc(db, VEHICLES_COLLECTION, patch.vehicleId));
+      if (!newVeh.exists() || (newVeh.data() as any).ownerUid !== user.uid) {
+        throw new Error('Permission denied: You do not own the new vehicle.');
+      }
+    }
+
+    const docRef = doc(db, COMPLIANCE_COLLECTION, id);
+    await updateDoc(docRef, {
+      ...patch,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (err) {
+    console.error('Error updating compliance record:', err);
+    throw err;
+  }
+}
+
+/** Delete a compliance record (verifies ownership). */
+export async function deleteComplianceRecord(id: string): Promise<void> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('User must be authenticated to delete a compliance record.');
+
+  try {
+    const current = await getComplianceRecord(id);
+    if (!current || (current.ownerUid && current.ownerUid !== user.uid)) {
+      throw new Error('Permission denied or record not found.');
+    }
+    const docRef = doc(db, COMPLIANCE_COLLECTION, id);
+    await deleteDoc(docRef);
+  } catch (err) {
+    console.error('Error deleting compliance record:', err);
+    throw err;
+  }
+}
+
+/** Delete all compliance records for a vehicle (scoped to current user for safety). */
+export async function deleteAllComplianceRecordsForVehicle(vehicleId: string): Promise<void> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('User must be authenticated to delete records.');
+
+  try {
+    const ref = collection(db, COMPLIANCE_COLLECTION);
+    const q = query(ref, where('ownerUid', '==', user.uid), where('vehicleId', '==', vehicleId));
+    const snap = await getDocs(q);
+    if (snap.empty) return;
+
+    const batch = writeBatch(db);
+    snap.docs.forEach(d => batch.delete(d.ref));
     await batch.commit();
+  } catch (err) {
+    console.error('Error batch-deleting compliance records:', err);
+    throw err;
+  }
+}
+
+/** Upcoming records within N days. Uses Firestore Timestamps. */
+export async function listUpcomingComplianceRecords(days: number): Promise<ComplianceRecord[]> {
+  const user = auth.currentUser;
+  if (!user) {
+    console.warn('No user logged in, cannot fetch upcoming compliance records.');
+    return [];
+  }
+
+  const now = new Date();
+  const start = Timestamp.fromDate(now);
+  const end = Timestamp.fromDate(new Date(now.getTime() + days * 24 * 60 * 60 * 1000));
+
+  const ref = collection(db, COMPLIANCE_COLLECTION);
+  const q = query(
+    ref,
+    where('ownerUid', '==', user.uid),
+    where('expiryDate', '>=', start),
+    where('expiryDate', '<=', end),
+    orderBy('expiryDate', 'asc')
+  );
+
+  try {
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as ComplianceRecord));
+  } catch (err) {
+    console.error('Error listing upcoming compliance records:', err);
+    return [];
+  }
 }

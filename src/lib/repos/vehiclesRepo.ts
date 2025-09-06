@@ -3,15 +3,13 @@ import { collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, query, 
 import type { Vehicle } from '@/lib/types';
 import { deleteAllComplianceRecordsForVehicle } from './complianceRepo';
 
-const vehiclesCollection = collection(db, 'vehicles');
-
 /**
  * Fetches all vehicles for a given user.
  * @param uid The user's ID.
  * @returns A promise that resolves to an array of vehicles.
  */
 export async function getVehiclesForUser(uid: string): Promise<Vehicle[]> {
-  const q = query(vehiclesCollection, where('ownerUid', '==', uid));
+  const q = query(collection(db, 'vehicles'), where('ownerUid', '==', uid));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Vehicle));
 }
@@ -42,7 +40,7 @@ export async function getVehicleForUser(uid: string, id: string): Promise<Vehicl
  * @returns A promise that resolves to the new vehicle's ID.
  */
 export async function addVehicleForUser(uid: string, vehicleData: Omit<Vehicle, 'id' | 'ownerUid'>) {
-  const docRef = await addDoc(vehiclesCollection, {
+  const docRef = await addDoc(collection(db, 'vehicles'), {
     ...vehicleData,
     ownerUid: uid,
   });

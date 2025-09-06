@@ -4,8 +4,6 @@ import type { ComplianceRecord, Vehicle } from '@/lib/types';
 import { addDays } from 'date-fns';
 import { getVehiclesForUser } from './vehiclesRepo';
 
-const complianceCollection = collection(db, 'complianceRecords');
-
 /**
  * Adds a new compliance record for a vehicle, ensuring the current user owns the vehicle.
  */
@@ -21,7 +19,7 @@ export async function addComplianceRecordForUser(uid: string, recordData: Omit<C
     ownerUid: uid,
   };
 
-  const docRef = await addDoc(complianceCollection, dataWithOwner);
+  const docRef = await addDoc(collection(db, 'complianceRecords'), dataWithOwner);
   return docRef.id;
 }
 
@@ -31,7 +29,7 @@ export async function addComplianceRecordForUser(uid: string, recordData: Omit<C
 export async function getComplianceRecordsForVehicleForUser(uid: string, vehicleId: string): Promise<ComplianceRecord[]> {
   // We can query directly on ownerUid for security and indexing benefits.
   const q = query(
-    complianceCollection, 
+    collection(db, 'complianceRecords'), 
     where('ownerUid', '==', uid),
     where('vehicleId', '==', vehicleId),
     orderBy('expiryDate', 'desc')
@@ -48,7 +46,7 @@ export async function getUpcomingComplianceRecordsForUser(uid: string, days: num
     const futureDate = addDays(today, days);
 
     const q = query(
-        complianceCollection,
+        collection(db, 'complianceRecords'),
         where('ownerUid', '==', uid),
         where('expiryDate', '>=', today.toISOString()),
         where('expiryDate', '<=', futureDate.toISOString()),
@@ -89,7 +87,7 @@ export async function deleteComplianceRecordForUser(uid: string, id: string) {
  * Intended for use when deleting a vehicle.
  */
 export async function deleteAllComplianceRecordsForVehicle(vehicleId: string) {
-    const q = query(complianceCollection, where('vehicleId', '==', vehicleId));
+    const q = query(collection(db, 'complianceRecords'), where('vehicleId', '==', vehicleId));
     const snapshot = await getDocs(q);
     
     if (snapshot.empty) {

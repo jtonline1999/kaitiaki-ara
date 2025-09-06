@@ -1,8 +1,9 @@
+
 import { db, auth } from './firebase';
 import { collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, query, where, orderBy } from 'firebase/firestore';
 import type { ComplianceRecord } from './types';
 import { addDays, formatISO } from 'date-fns';
-import { getVehicles } from './vehicles';
+import { getVehiclesClientSide } from './vehicles';
 
 const complianceCollection = collection(db, 'complianceRecords');
 
@@ -24,7 +25,7 @@ export async function getUpcomingComplianceRecords(days: number): Promise<Compli
     const user = auth.currentUser;
     if (!user) return [];
 
-    const userVehicles = await getVehicles();
+    const userVehicles = await getVehiclesClientSide();
     if (userVehicles.length === 0) return [];
 
     const vehicleIds = userVehicles.map(v => v.id);

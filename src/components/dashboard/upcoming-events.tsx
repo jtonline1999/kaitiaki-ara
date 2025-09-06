@@ -12,7 +12,7 @@ import { FileText, ShieldCheck, Truck, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '../ui/button';
 import { getUpcomingComplianceRecords } from '@/lib/compliance';
-import { getVehicle } from '@/lib/vehicles';
+import { getVehicleClientSide } from '@/lib/vehicles';
 
 const iconMap = {
   Registration: <FileText className="h-4 w-4" />,
@@ -27,7 +27,7 @@ export async function UpcomingEvents() {
 
   const recordsWithVehicles = await Promise.all(
     upcomingRecords.map(async (record) => {
-      const vehicle = await getVehicle(record.vehicleId);
+      const vehicle = await getVehicleClientSide(record.vehicleId);
       return {
         ...record,
         vehicle,

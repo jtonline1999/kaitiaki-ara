@@ -6,9 +6,9 @@ env:
   - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
     value: kaitiaki-ara
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
-    value: 
+    value: k1:248556666042:web:b5027931f5516a08279683
   - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    value: 
+    value: kaitiaki-ara.firebasestorage.app
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
     value: AIzaSyBHAYzxaVgAdPOdTxkPta5diNvM8jI6F4k
   - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN

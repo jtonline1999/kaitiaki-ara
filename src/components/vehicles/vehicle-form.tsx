@@ -136,7 +136,7 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{mode === "add" ? "Add" : "Edit"} Vehicle</DialogTitle>
           <DialogDescription>
@@ -151,10 +151,12 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
               render={({ field }) => (
                 <FormItem className="space-y-2 md:grid md:grid-cols-4 md:items-center md:space-y-0 md:gap-4">
                   <FormLabel className="md:text-right">Plate</FormLabel>
-                  <FormControl className="md:col-span-3">
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage className="md:col-span-4 md:col-start-2" />
+                  <div className="md:col-span-3">
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage className="mt-2" />
+                  </div>
                 </FormItem>
               )}
             />
@@ -172,10 +174,12 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
               render={({ field }) => (
                 <FormItem className="space-y-2 md:grid md:grid-cols-4 md:items-center md:space-y-0 md:gap-4">
                   <FormLabel className="md:text-right">Make</FormLabel>
-                  <FormControl className="md:col-span-3">
-                    <Input {...field} />
-                  </FormControl>
-                   <FormMessage className="md:col-span-4 md:col-start-2" />
+                  <div className="md:col-span-3">
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage className="mt-2" />
+                  </div>
                 </FormItem>
               )}
             />
@@ -186,10 +190,12 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
               render={({ field }) => (
                 <FormItem className="space-y-2 md:grid md:grid-cols-4 md:items-center md:space-y-0 md:gap-4">
                   <FormLabel className="md:text-right">Model</FormLabel>
-                  <FormControl className="md:col-span-3">
-                    <Input {...field} />
-                  </FormControl>
-                   <FormMessage className="md:col-span-4 md:col-start-2" />
+                  <div className="md:col-span-3">
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage className="mt-2" />
+                  </div>
                 </FormItem>
               )}
             />
@@ -199,10 +205,12 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
               render={({ field }) => (
                 <FormItem className="space-y-2 md:grid md:grid-cols-4 md:items-center md:space-y-0 md:gap-4">
                   <FormLabel className="md:text-right">Year</FormLabel>
-                  <FormControl className="md:col-span-3">
-                    <Input type="number" {...field} />
-                  </FormControl>
-                   <FormMessage className="md:col-span-4 md:col-start-2" />
+                   <div className="md:col-span-3">
+                    <FormControl>
+                      <Input type="number" {...field} />
+                    </FormControl>
+                    <FormMessage className="mt-2" />
+                  </div>
                 </FormItem>
               )}
             />
@@ -213,10 +221,12 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
               render={({ field }) => (
                 <FormItem className="space-y-2 md:grid md:grid-cols-4 md:items-center md:space-y-0 md:gap-4">
                   <FormLabel className="md:text-right">VIN</FormLabel>
-                  <FormControl className="md:col-span-3">
-                    <Input {...field} />
-                  </FormControl>
-                   <FormMessage className="md:col-span-4 md:col-start-2" />
+                   <div className="md:col-span-3">
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage className="mt-2" />
+                  </div>
                 </FormItem>
               )}
             />
@@ -227,10 +237,12 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
               render={({ field }) => (
                 <FormItem className="space-y-2 md:grid md:grid-cols-4 md:items-center md:space-y-0 md:gap-4">
                   <FormLabel className="md:text-right">Color</FormLabel>
-                  <FormControl className="md:col-span-3">
-                    <Input {...field} />
-                  </FormControl>
-                   <FormMessage className="md:col-span-4 md:col-start-2" />
+                   <div className="md:col-span-3">
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage className="mt-2" />
+                  </div>
                 </FormItem>
               )}
             />

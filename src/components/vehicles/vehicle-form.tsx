@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState, type ReactNode, useTransition } from "react";
+import { useState, type ReactNode, useTransition, useEffect } from "react";
 import { OcrModal } from "./ocr-modal";
 import { Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -72,6 +72,18 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
           imageUrl: "https://picsum.photos/600/400"
         },
   });
+
+  useEffect(() => {
+    // When the vehicle prop changes (due to real-time updates),
+    // reset the form to show the latest data.
+    if (vehicle) {
+      form.reset({
+        ...vehicle,
+        vin: vehicle.vin ?? "",
+        color: vehicle.color ?? "",
+      });
+    }
+  }, [vehicle, form]);
   
   const fetchVehicleData = async () => {
     setIsFetching(true);
@@ -149,7 +161,7 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
               control={form.control}
               name="plateNumber"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-1 items-start gap-2 md:grid-cols-4 md:items-center md:gap-4">
+                <FormItem className="grid grid-cols-1 items-start gap-2 md:grid md:grid-cols-4 md:items-center md:gap-4">
                   <FormLabel className="md:text-right">Plate</FormLabel>
                   <div className="w-full md:col-span-3">
                     <FormControl>
@@ -172,7 +184,7 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
               control={form.control}
               name="make"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-1 items-start gap-2 md:grid-cols-4 md:items-center md:gap-4">
+                <FormItem className="grid grid-cols-1 items-start gap-2 md:grid md:grid-cols-4 md:items-center md:gap-4">
                   <FormLabel className="md:text-right">Make</FormLabel>
                   <div className="w-full md:col-span-3">
                     <FormControl>
@@ -188,7 +200,7 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
               control={form.control}
               name="model"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-1 items-start gap-2 md:grid-cols-4 md:items-center md:gap-4">
+                <FormItem className="grid grid-cols-1 items-start gap-2 md:grid md:grid-cols-4 md:items-center md:gap-4">
                   <FormLabel className="md:text-right">Model</FormLabel>
                   <div className="w-full md:col-span-3">
                     <FormControl>
@@ -203,7 +215,7 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
               control={form.control}
               name="year"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-1 items-start gap-2 md:grid-cols-4 md:items-center md:gap-4">
+                <FormItem className="grid grid-cols-1 items-start gap-2 md:grid md:grid-cols-4 md:items-center md:gap-4">
                   <FormLabel className="md:text-right">Year</FormLabel>
                    <div className="w-full md:col-span-3">
                     <FormControl>
@@ -219,7 +231,7 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
               control={form.control}
               name="vin"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-1 items-start gap-2 md:grid-cols-4 md:items-center md:gap-4">
+                <FormItem className="grid grid-cols-1 items-start gap-2 md:grid md:grid-cols-4 md:items-center md:gap-4">
                   <FormLabel className="md:text-right">VIN</FormLabel>
                    <div className="w-full md:col-span-3">
                     <FormControl>
@@ -235,7 +247,7 @@ export function VehicleForm({ mode, vehicle, children }: VehicleFormProps) {
               control={form.control}
               name="color"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-1 items-start gap-2 md:grid-cols-4 md:items-center md:gap-4">
+                <FormItem className="grid grid-cols-1 items-start gap-2 md:grid md:grid-cols-4 md:items-center md:gap-4">
                   <FormLabel className="md:text-right">Color</FormLabel>
                    <div className="w-full md:col-span-3">
                     <FormControl>

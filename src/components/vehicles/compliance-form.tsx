@@ -107,15 +107,20 @@ export function ComplianceForm({ mode, record, children, vehicleId }: Compliance
     setIsSaving(true);
 
     try {
-      const recordData = {
+      const recordData: Partial<ComplianceRecord> = {
         type: type as ComplianceRecord['type'],
         expiryDate: Timestamp.fromDate(expiryDate),
         vehicleId: vehicleId,
-        predictedExpiryDate: predictedRucDate ? Timestamp.fromDate(new Date(predictedRucDate)) : record?.predictedExpiryDate
       };
 
+      if (predictedRucDate) {
+        recordData.predictedExpiryDate = Timestamp.fromDate(new Date(predictedRucDate));
+      } else if (mode === 'edit' && record?.predictedExpiryDate) {
+        recordData.predictedExpiryDate = record.predictedExpiryDate;
+      }
+
       if (mode === 'add') {
-        await createComplianceRecord(recordData);
+        await createComplianceRecord(recordData as any);
         toast({ title: 'Record Added', description: 'The new compliance record has been saved.' });
       } else if (record) {
         await updateComplianceRecord(record.id, recordData);

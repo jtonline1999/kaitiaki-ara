@@ -10,7 +10,7 @@ import { AlertTriangle, Loader2, MoreVertical, Trash2, Truck } from 'lucide-reac
 import { VehicleForm } from '@/components/vehicles/vehicle-form';
 import { Suspense, useEffect, useState, useTransition } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { getVehicle, deleteVehicle } from '@/lib/repos/vehiclesRepo';
+import { listenToVehicle, deleteVehicle } from '@/lib/repos/vehiclesRepo';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,13 +49,18 @@ function VehicleData() {
     }
 
     if (user && vehicleId) {
-      getVehicle(vehicleId).then(data => {
+      setLoading(true);
+      const unsubscribe = listenToVehicle(vehicleId, (data) => {
         setVehicle(data);
         setLoading(false);
       });
+      
+      // Cleanup subscription on unmount
+      return () => unsubscribe();
     } else {
       // If there's no user after auth has loaded, we can't fetch the vehicle.
       setLoading(false);
+      setVehicle(null);
     }
   }, [user, vehicleId, isAuthLoading]);
 

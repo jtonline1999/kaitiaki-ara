@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -99,6 +100,42 @@ export async function getVehicle(id: string): Promise<Vehicle | null> {
   }
 }
 
+/** Sets up a real-time listener for a single vehicle. */
+export function listenToVehicle(
+  id: string,
+  callback: (vehicle: Vehicle | null) => void
+): Unsubscribe {
+  const user = auth.currentUser;
+  if (!user) {
+    console.warn('No user logged in, cannot listen to vehicle.');
+    callback(null);
+    return () => {};
+  }
+
+  const docRef = doc(db, VEHICLES_COLLECTION, id);
+
+  const unsubscribe = onSnapshot(docRef, (snap) => {
+    if (!snap.exists()) {
+      callback(null);
+      return;
+    }
+
+    const vehicle = { id: snap.id, ...snap.data() } as Vehicle;
+    if (vehicle.ownerUid && vehicle.ownerUid !== user.uid) {
+      console.warn('User does not have permission to access this vehicle.');
+      callback(null);
+    } else {
+      callback(vehicle);
+    }
+  }, (error) => {
+    console.error(`Error listening to vehicle ${id}:`, error);
+    callback(null);
+  });
+
+  return unsubscribe;
+}
+
+
 /** Create a new vehicle (sets ownerUid and timestamps). */
 export async function createVehicle(
   data: Partial<Omit<Vehicle, 'id'>>
@@ -142,9 +179,10 @@ export async function updateVehicle(
     }
 
   try {
+    // We use getVehicle to perform the ownership check internally
     const vehicle = await getVehicle(id);
-    if (!vehicle || (vehicle.ownerUid && vehicle.ownerUid !== user.uid)) {
-      throw new Error('User does not have permission to update this vehicle.');
+    if (!vehicle) {
+      throw new Error('Permission denied or vehicle not found.');
     }
     const docRef = doc(db, VEHICLES_COLLECTION, id);
     await updateDoc(docRef, {
@@ -165,9 +203,10 @@ export async function deleteVehicle(id: string): Promise<void> {
   }
 
   try {
+    // We use getVehicle to perform the ownership check internally
     const vehicle = await getVehicle(id);
-    if (!vehicle || (vehicle.ownerUid && vehicle.ownerUid !== user.uid)) {
-      throw new Error('User does not have permission to delete this vehicle.');
+    if (!vehicle) {
+      throw new Error('Permission denied or vehicle not found.');
     }
 
     // Cascade delete compliance records

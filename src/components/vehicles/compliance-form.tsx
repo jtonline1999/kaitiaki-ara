@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ComplianceRecord } from "@/lib/types";
@@ -32,6 +33,7 @@ import { predictRucExpiry } from "@/ai/flows/predict-ruc-expiry";
 import { useToast } from "@/hooks/use-toast";
 import { addComplianceRecord, updateComplianceRecord } from "@/lib/compliance";
 import { useRouter } from "next/navigation";
+import { auth } from "@/lib/firebase";
 
 type ComplianceFormProps = {
   mode: "add" | "edit";
@@ -49,6 +51,7 @@ export function ComplianceForm({ mode, record, children, vehicleId }: Compliance
   );
   const [predictedRucDate, setPredictedRucDate] = useState<string | null>(null);
   const [isPredicting, setIsPredicting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
   const handlePredictRuc = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -100,30 +103,37 @@ export function ComplianceForm({ mode, record, children, vehicleId }: Compliance
       });
       return;
     }
-
-    const recordData = {
-      type: type as ComplianceRecord['type'],
-      expiryDate: expiryDate.toISOString(),
-      vehicleId: vehicleId,
-      predictedExpiryDate: predictedRucDate ?? record?.predictedExpiryDate
-    };
+    
+    setIsSaving(true);
 
     try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error("Authentication required.");
+
+      const recordData = {
+        type: type as ComplianceRecord['type'],
+        expiryDate: expiryDate.toISOString(),
+        vehicleId: vehicleId,
+        predictedExpiryDate: predictedRucDate ?? record?.predictedExpiryDate
+      };
+
       if (mode === 'add') {
-        await addComplianceRecord(recordData);
+        await addComplianceRecord(idToken, recordData);
         toast({ title: 'Record Added', description: 'The new compliance record has been saved.' });
       } else if (record) {
-        await updateComplianceRecord(record.id, recordData);
+        await updateComplianceRecord(idToken, record.id, recordData);
         toast({ title: 'Record Updated', description: 'The compliance record has been updated.' });
       }
       setOpen(false);
       router.refresh();
-    } catch (error) {
+    } catch (error: any) {
        toast({
         variant: "destructive",
         title: "Save Failed",
-        description: "Could not save the record. Please try again.",
+        description: error.message || "Could not save the record. Please try again.",
       });
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -220,7 +230,10 @@ export function ComplianceForm({ mode, record, children, vehicleId }: Compliance
             <DialogClose asChild>
                 <Button type="button" variant="secondary">Cancel</Button>
             </DialogClose>
-            <Button type="submit" onClick={handleSave}>Save</Button>
+            <Button type="submit" onClick={handleSave} disabled={isSaving}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save
+            </Button>
           </div>
         </DialogFooter>
       </DialogContent>

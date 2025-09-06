@@ -5,12 +5,34 @@ import type { Vehicle } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ComplianceList } from '@/components/vehicles/compliance-list';
-import { notFound, useParams } from 'next/navigation';
-import { Truck } from 'lucide-react';
+import { notFound, useParams, useRouter } from 'next/navigation';
+import { AlertTriangle, Loader2, MoreVertical, Trash2, Truck } from 'lucide-react';
 import { VehicleForm } from '@/components/vehicles/vehicle-form';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, useTransition } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { getVehicleForUser } from '@/lib/repos/vehiclesRepo';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { deleteVehicle } from '@/lib/vehicles';
+import { useToast } from '@/hooks/use-toast';
+import { auth } from '@/lib/firebase';
 
 function VehicleData() {
   const params = useParams();
@@ -18,7 +40,10 @@ function VehicleData() {
   const { user } = useAuth();
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
-  
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+  const { toast } = useToast();
+
   useEffect(() => {
     if (user && vehicleId) {
       getVehicleForUser(user.uid, vehicleId).then(data => {
@@ -30,6 +55,28 @@ function VehicleData() {
     }
   }, [user, vehicleId]);
 
+  const handleDelete = async () => {
+    startTransition(async () => {
+      try {
+        const idToken = await auth.currentUser?.getIdToken();
+        if (!idToken) throw new Error("Authentication required.");
+
+        await deleteVehicle(idToken, vehicleId);
+        toast({
+          title: 'Vehicle Deleted',
+          description: 'The vehicle and its records have been removed.',
+        });
+        router.push('/vehicles');
+        router.refresh();
+      } catch (error: any) {
+        toast({
+          variant: 'destructive',
+          title: 'Deletion Failed',
+          description: error.message,
+        });
+      }
+    });
+  }
 
   if (loading) {
       return <div>Loading vehicle...</div>;
@@ -46,9 +93,47 @@ function VehicleData() {
           <h1 className="text-3xl font-bold font-headline tracking-tight">{vehicle.make} {vehicle.model}</h1>
           <p className="text-muted-foreground">{vehicle.plateNumber}</p>
         </div>
-        <VehicleForm mode="edit" vehicle={vehicle}>
-          <button className="text-sm font-medium text-primary hover:underline">Edit Vehicle</button>
-        </VehicleForm>
+        <div className="flex items-center gap-2">
+          <VehicleForm mode="edit" vehicle={vehicle}>
+            <Button variant="outline">Edit Vehicle</Button>
+          </VehicleForm>
+          <AlertDialog>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreVertical className="h-5 w-5" />
+                  <span className="sr-only">More options</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <AlertDialogTrigger asChild>
+                  <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Vehicle
+                  </DropdownMenuItem>
+                </AlertDialogTrigger>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-6 w-6 text-destructive" />
+                  Are you sure?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete the vehicle <strong>{vehicle.make} {vehicle.model} ({vehicle.plateNumber})</strong> and all of its associated compliance records. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Yes, delete vehicle
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
@@ -98,9 +183,7 @@ function VehicleData() {
 export default function VehicleDetailPage() {
   return (
     <div className="container mx-auto">
-      <Suspense fallback={<div>Loading vehicle...</div>}>
-        <VehicleData />
-      </Suspense>
+      <VehicleData />
     </div>
   );
 }

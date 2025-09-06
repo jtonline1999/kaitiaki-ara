@@ -1,82 +1,48 @@
 
-import { db, auth } from './firebase';
-import { collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, query, where, orderBy } from 'firebase/firestore';
+'use server';
+
 import type { ComplianceRecord } from './types';
-import { addDays } from 'date-fns';
-import { getVehiclesClientSide } from './vehicles';
+import { revalidatePath } from 'next/cache';
+import { getAuthenticatedUser } from './auth-server';
+import { addComplianceRecordForUser, deleteComplianceRecordForUser, getComplianceRecordsForVehicleForUser, getUpcomingComplianceRecordsForUser, updateComplianceRecordForUser } from './repos/complianceRepo';
+import { auth } from './firebase';
 
-// This file is now deprecated and will be removed in a future step.
-// Logic has been moved to /lib/repos/complianceRepo.ts
+// This file now contains a mix of client-callable functions and server actions.
+// Client-callable functions delegate to the repository layer and require a UID.
+// Server actions handle authentication and then delegate to the repository layer.
 
-const complianceCollection = collection(db, 'complianceRecords');
+// --- Client-Callable Functions ---
 
-// CREATE
-export async function addComplianceRecord(recordData: Omit<ComplianceRecord, 'id'>) {
-  const docRef = await addDoc(complianceCollection, recordData);
-  return docRef.id;
+export async function getComplianceRecordsForVehicle(uid: string, vehicleId: string): Promise<ComplianceRecord[]> {
+  return getComplianceRecordsForVehicleForUser(uid, vehicleId);
 }
 
-// READ (for a specific vehicle)
-export async function getComplianceRecordsForVehicle(vehicleId: string): Promise<ComplianceRecord[]> {
-  const q = query(complianceCollection, where('vehicleId', '==', vehicleId));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ComplianceRecord));
+export async function getUpcomingComplianceRecords(uid: string, days: number): Promise<ComplianceRecord[]> {
+  return getUpcomingComplianceRecordsForUser(uid, days);
 }
 
-// READ (upcoming for the current user)
-export async function getUpcomingComplianceRecords(days: number): Promise<ComplianceRecord[]> {
-    const user = auth.currentUser;
-    if (!user) return [];
+// --- Server Actions ---
 
-    const userVehicles = await getVehiclesClientSide();
-    if (userVehicles.length === 0) return [];
-
-    const vehicleIds = userVehicles.map(v => v.id);
-    const today = new Date();
-    const futureDate = addDays(today, days);
-
-    // Firestore 'in' queries are limited to 30 items. 
-    // If a user has more than 30 vehicles, we need to batch the queries.
-    const batches: Promise<ComplianceRecord[]>[] = [];
-    for (let i = 0; i < vehicleIds.length; i += 30) {
-        const batchIds = vehicleIds.slice(i, i + 30);
-        
-        const q = query(
-            complianceCollection,
-            where('vehicleId', 'in', batchIds),
-            where('expiryDate', '>=', today.toISOString()),
-            where('expiryDate', '<=', futureDate.toISOString()),
-            orderBy('expiryDate', 'asc')
-        );
-        
-        batches.push(getDocs(q).then(snapshot => 
-            snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ComplianceRecord))
-        ));
-    }
-
-    const results = await Promise.all(batches);
-    return results.flat();
+export async function addComplianceRecord(idToken: string, recordData: Omit<ComplianceRecord, 'id' | 'ownerUid'>) {
+  const { uid } = await getAuthenticatedUser(idToken);
+  const recordId = await addComplianceRecordForUser(uid, recordData);
+  revalidatePath(`/vehicles/${recordData.vehicleId}`);
+  return recordId;
 }
 
-
-// READ (one)
-export async function getComplianceRecord(id: string): Promise<ComplianceRecord | null> {
-  const docRef = doc(db, 'complianceRecords', id);
-  const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) {
-    return { id: docSnap.id, ...docSnap.data() } as ComplianceRecord;
+export async function updateComplianceRecord(idToken: string, id: string, recordData: Partial<Omit<ComplianceRecord, 'id' | 'ownerUid'>>) {
+  const { uid } = await getAuthenticatedUser(idToken);
+  await updateComplianceRecordForUser(uid, id, recordData);
+  if (recordData.vehicleId) {
+    revalidatePath(`/vehicles/${recordData.vehicleId}`);
   }
-  return null;
 }
 
-// UPDATE
-export async function updateComplianceRecord(id: string, recordData: Partial<ComplianceRecord>) {
-  const docRef = doc(db, 'complianceRecords', id);
-  await updateDoc(docRef, recordData);
-}
-
-// DELETE
-export async function deleteComplianceRecord(id: string) {
-  const docRef = doc(db, 'complianceRecords', id);
-  await deleteDoc(docRef);
+export async function deleteComplianceRecord(idToken: string, id: string) {
+  const { uid } = await getAuthenticatedUser(idToken);
+  // We need to find the vehicleId before deleting to revalidate the path
+  // NOTE: In a real app, you might pass vehicleId to the action or have the repo return the deleted doc.
+  // For simplicity, we just revalidate the generic /vehicles path.
+  await deleteComplianceRecordForUser(uid, id);
+  revalidatePath('/vehicles');
 }
